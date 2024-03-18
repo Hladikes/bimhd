@@ -36,7 +36,7 @@ Our project aims to develop a REST API in Rust using the Actix web framework to 
 - Swagger
 
 ## Dependencies
-- [Actix Web Framework](https://crates.io/crates/actix)
+- [Actix Web Framework](https://crates.io/crates/actix-web)
 - [serde](https://crates.io/crates/serde)
 - [gtfs-structure](https://crates.io/crates/gtfs-structures)
 - (To be further explored and specified during development)
