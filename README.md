@@ -41,6 +41,6 @@ Our project aims to develop a REST API in Rust using the Actix web framework to 
 - [gtfs-structure](https://crates.io/crates/gtfs-structures)
 - (To be further explored and specified during development)
 
-## Areas for Enhancement and Consideration##
+## Areas for Enhancement and Consideration ##
 __1__ GTFS data can be complex. Implementing efficient and robust parsing mechanisms will be key. Consider creating a modular design that can easily adapt to changes in the GTFS specification or handle additional data sources in the future.
 __2__ Integrating Swagger for documentation could greatly improve the user experience by providing interactive documentation and testing capabilities.
