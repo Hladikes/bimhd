@@ -1,5 +1,5 @@
 use std::{collections::BTreeSet, sync::Arc, cmp::Ordering};
-use gtfs_structures::Stop;
+use gtfs_structures::{Gtfs, Stop};
 use trigram::similarity;
 
 pub struct StopNamesIndex {
@@ -7,11 +7,11 @@ pub struct StopNamesIndex {
 }
 
 impl StopNamesIndex {
-    pub fn new(stops: Vec<&Arc<Stop>>) -> StopNamesIndex {
+    pub fn new(gtfs: &Gtfs) -> StopNamesIndex {
         // Make an array of unique stop names. BTreeSet was used to
         // always have the same order of elements in set
-        let stop_names = stops
-            .iter()
+        let stop_names = gtfs.stops
+            .values()
             .map(|s| s.as_ref().name.clone().unwrap())
             .collect::<BTreeSet<String>>();
 
@@ -20,8 +20,8 @@ impl StopNamesIndex {
             .iter()
             .map(|stop_name| {
                 // Get all stop platforms for a given stop name
-                let target_stops: Vec<Arc<Stop>> = stops
-                    .iter()
+                let target_stops: Vec<Arc<Stop>> = gtfs.stops
+                    .values()
                     .filter(|s| s.as_ref().name.as_ref().is_some_and(|n| n == stop_name))
                     .map(|s| (*s).clone())
                     .collect();
