@@ -8,3 +8,7 @@ edition = "2021"
 [dependencies]
 gtfs-structures = "0.41.2"
 trigram = "0.4.4"
+
+[[bin]]
+name = "bimhd"
+path = "src/main.rs"
