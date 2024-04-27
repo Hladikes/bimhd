@@ -1,0 +1,5 @@
+/target
+/gtfs
+.git
+.gitignore
+.DS_Store
