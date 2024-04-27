@@ -1,9 +1,14 @@
-use std::{collections::BTreeSet, sync::Arc, cmp::Ordering};
+use std::{collections::BTreeSet, sync::Arc};
 use gtfs_structures::{Gtfs, Stop};
 use trigram::similarity;
 
+pub struct StopPlatforms {
+    pub stop_name: String,
+    pub platforms: Vec<Arc<Stop>>,
+}
+
 pub struct StopNamesIndex {
-    pub stops: Vec<(String, Vec<Arc<Stop>>)>,
+    pub stop_platforms: Vec<StopPlatforms>,
 }
 
 impl StopNamesIndex {
@@ -16,40 +21,34 @@ impl StopNamesIndex {
             .collect::<BTreeSet<String>>();
 
         // (weight, stop name, vector of all stops / platforms for a given stop name)
-        let stops_name_index: Vec<(String, Vec<Arc<Stop>>)> = stop_names
+        let stop_platforms: Vec<StopPlatforms> = stop_names
             .iter()
             .map(|stop_name| {
                 // Get all stop platforms for a given stop name
-                let target_stops: Vec<Arc<Stop>> = gtfs.stops
-                    .values()
-                    .filter(|s| s.as_ref().name.as_ref().is_some_and(|n| n == stop_name))
-                    .map(|s| (*s).clone())
-                    .collect();
-
-                (stop_name.to_string(), target_stops)
+                StopPlatforms {
+                    stop_name: stop_name.clone(),
+                    platforms: gtfs.stops
+                        .values()
+                        .filter(|s| s.as_ref().name.as_ref().is_some_and(|n| n == stop_name))
+                        .map(|s| (*s).clone())
+                        .collect(),
+                }
             }).collect();
 
         StopNamesIndex {
-            stops: stops_name_index,
+            stop_platforms,
         }
     }
 
-    pub fn search_by_name(&self, query: &str) -> Vec<(String, &Vec<Arc<Stop>>)> {
+    pub fn search_by_name(&self, query: &str) -> Vec<&StopPlatforms> {
         // (weight, stop name, vector of all stops / platforms for a given stop name)
-        let mut weighted_stop_names: Vec<(f32, String, &Vec<Arc<Stop>>)> = self.stops
+        let mut weighted_stop_names: Vec<(f32, &StopPlatforms)> = self.stop_platforms
             .iter()
-            .map(|(full_name, stops)| (similarity(&full_name, query), full_name.to_string(), stops))
+            .map(|sp| (similarity(&sp.stop_name, query), sp))
             .collect();
 
         // Move the result with higher score closer to the beginning of an array
-        weighted_stop_names.sort_by(|a, b| {
-            if a.0 > b.0 {
-                Ordering::Less
-            } else {
-                Ordering::Greater
-            }
-        });
-
-        weighted_stop_names.iter().map(|f| (f.1.to_string(), f.2)).collect()
+        weighted_stop_names.sort_by(|a, b| b.0.total_cmp(&a.0));
+        weighted_stop_names.iter().map(|f| f.1).collect()
     }
 }
