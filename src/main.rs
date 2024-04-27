@@ -12,23 +12,23 @@ fn main() {
     let gtfs = Gtfs::new("gtfs.zip").unwrap();
     let stops_index = StopNamesIndex::new(&gtfs);
     let trips_index = TripsIndex::new(&gtfs);
-    
+
     loop {
-        print!("from > ");
-        let from = read_line();
+        print!("from: ");
+        let from_stop_name = read_line();
         
-        print!("to > ");
-        let to = read_line();
+        print!("  to: ");
+        let to_stop_name = read_line();
 
         let start = Instant::now();
         
-        let from_platforms = stops_index.search_by_name(from.as_str()).get(0).unwrap().1;
-        let to_platforms = stops_index.search_by_name(to.as_str()).get(0).unwrap().1;
+        let from = *stops_index.search_by_name(from_stop_name.as_str()).get(0).unwrap();
+        let to = *stops_index.search_by_name(to_stop_name.as_str()).get(0).unwrap();
 
         let mut all_trips: Vec<&Trip> = vec![];
 
-        from_platforms.iter().for_each(|fp| {
-            to_platforms.iter().for_each(|tp| {
+        from.platforms.iter().for_each(|fp| {
+            to.platforms.iter().for_each(|tp| {
                 if let Some(trips) = trips_index.get_direct_trips(fp.id(), tp.id()) {
                     all_trips.extend(trips);
                 }
@@ -37,21 +37,23 @@ fn main() {
 
         let elapsed = start.elapsed();
 
-        let possible_routes: HashSet<String> = all_trips
+        let possible_routes: HashSet<&String> = all_trips
             .iter()
             .map(|t| {
                 let route = gtfs.get_route(t.route_id.as_str()).unwrap();
-                route.short_name.clone().unwrap().clone()
+                let route_name = route.short_name.as_ref().unwrap();
+                route_name
             })
             .collect();
 
+        println!("   -> Going from {} to {}", from.stop_name, to.stop_name);
         println!(
-            "total trips {}, {:?}, {:?}", 
+            "   -> total trips {}, {:?}, {:?}", 
             all_trips.len(), 
             possible_routes, 
             all_trips.iter().map(|t| t.id()).collect::<Vec<&str>>()
         );
         
-        println!("Took {} ms\n-", elapsed.as_millis());
+        println!("   -> took {} ms\n", elapsed.as_millis());
     }
 }
