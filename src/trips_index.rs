@@ -91,6 +91,20 @@ impl<'a> TripsIndex<'a> {
         }
     }
 
+    pub fn build_graph(&self) -> HashMap<&str, HashMap<&str, Vec<&DirectTrip>>> {
+        let mut graph: HashMap<&str, HashMap<&str, Vec<&DirectTrip>>> = HashMap::new();
+
+        self.index.keys().into_iter().for_each(|(from, to)| {
+            let first_entry = graph.entry(from).or_insert(HashMap::new());
+            let second_entry = first_entry.entry(to).or_insert(Vec::new());
+
+            if let Some(trip) = self.index.get(&(from, to)) {
+                second_entry.extend(trip)
+            }
+        });
+
+        graph
+    }
 
     pub fn get_direct_trips(&self, from_stop_id: &'a str, to_stop_id: &'a str) -> Option<&Vec<DirectTrip>> {
         self.index.get(&(from_stop_id, to_stop_id))
