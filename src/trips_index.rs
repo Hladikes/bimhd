@@ -58,25 +58,24 @@ impl<'a> TripsIndex<'a> {
 
                 if let Some(trips_from) = singular_trips_index.get(from.id()) {
                     if let Some(trips_to) = singular_trips_index.get(to.id()) {
-                        let trips_intersection: Vec<&Trip> = trips_from
+                        let direct_trips: Vec<DirectTrip> = trips_from
                             .intersection(trips_to)
-                            .map(|t| gtfs.get_trip(*t).expect("Could not find a trip for a given id"))
-                            .collect();
-
-                        let direct_trips: Vec<DirectTrip<'_>> = trips_intersection.iter().filter_map(|t| {
-                            if let Some(from_idx) = t.stop_times.iter().position(|st| st.stop.id == from.id()) {
-                                if let Some(to_idx) = t.stop_times.iter().position(|st| st.stop.id == to.id()) {
-                                    if from_idx < to_idx {
-                                        return Some(DirectTrip {
-                                            trip: t,
-                                            stop_times: &t.stop_times[from_idx..to_idx + 1],
-                                        })
-                                    }
+                            .filter_map(|t| {
+                                if let Some(trip) = gtfs.get_trip(t).ok() {
+                                    if let Some(from_idx) = trip.stop_times.iter().position(|st| st.stop.id == from.id()) {
+                                        if let Some(to_idx) = trip.stop_times.iter().position(|st| st.stop.id == to.id()) {
+                                            if from_idx < to_idx {
+                                                return Some(DirectTrip {
+                                                    trip,   
+                                                    stop_times: &trip.stop_times[from_idx..to_idx + 1],
+                                                })
+                                            }
+                                        }
+                                    };
                                 }
-                            };
 
-                            None
-                        }).collect();
+                                None
+                            }).collect();
                         
                         if direct_trips.len() > 0 {
                             trips_index.insert((from.id(), to.id()), direct_trips);
@@ -91,6 +90,7 @@ impl<'a> TripsIndex<'a> {
             index: trips_index
         }
     }
+
 
     pub fn get_direct_trips(&self, from_stop_id: &'a str, to_stop_id: &'a str) -> Option<&Vec<DirectTrip>> {
         self.index.get(&(from_stop_id, to_stop_id))
