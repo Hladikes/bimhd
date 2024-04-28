@@ -16,6 +16,26 @@ fn main() {
     let trips_index = TripsIndex::new(&gtfs);
 
     loop {
+        print!("Cintorin Slavicie (long: 17.068, lat: 48.158)\n");
+        print!("Zochova (long: 17.106, lat: 48.144)\n");
+        print!("Hodzovo (long: 17.107, lat: 48.148)\n");
+        print!("Zlate piesky Wakelake (long: 17.194, lat: 48.189)\n");
+        print!("Rajka (long: 17.204, lat: 47.993)\n");
+        print!("long: ");
+        let long = read_line().parse::<f64>().unwrap();
+
+        print!("lat: ");
+        let lat = read_line().parse::<f64>().unwrap();
+
+        print!("count: ");
+        let count = read_line().parse::<usize>().unwrap();
+
+        let nearest_stops = stops_index.find_nearest_stops(long, lat, count);
+
+        nearest_stops.iter().for_each(|stop| {
+            println!("{}: {:.2} m", stop.stop_name, stop.distance_to_location(geo::Point::new(long, lat)));
+        });
+
         print!("from: ");
         let from_stop_name = read_line();
         

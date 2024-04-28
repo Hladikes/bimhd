@@ -1,6 +1,7 @@
-use std::{collections::BTreeSet, sync::Arc};
+use std::{collections::BTreeSet, sync::Arc, cmp::Ordering};
 use gtfs_structures::{Gtfs, Stop};
 use trigram::similarity;
+use geo::{algorithm::haversine_distance::HaversineDistance, Point};
 
 pub struct StopPlatforms {
     pub stop_name: String,
@@ -9,6 +10,20 @@ pub struct StopPlatforms {
 
 pub struct StopNamesIndex {
     pub stop_platforms: Vec<StopPlatforms>,
+}
+
+
+impl StopPlatforms {
+    pub fn distance_to_location(&self, location: Point<f64>) -> f64 {
+        self.platforms.iter()
+            .map(|stop| {
+                let stop_location = Point::new(stop.longitude.unwrap_or(0.0), stop.latitude.unwrap_or(0.0));
+                location.haversine_distance(&stop_location)
+            })
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
+            .map(|dist| format!("{:.2}", dist).parse::<f64>().unwrap())
+            .unwrap_or(f64::MAX)
+    }
 }
 
 impl StopNamesIndex {
@@ -50,5 +65,17 @@ impl StopNamesIndex {
         // Move the result with higher score closer to the beginning of an array
         weighted_stop_names.sort_by(|a, b| b.0.total_cmp(&a.0));
         weighted_stop_names.iter().map(|f| f.1).collect()
+    }
+
+    pub fn find_nearest_stops(&self, longitude: f64, latitude: f64, count: usize) -> Vec<&StopPlatforms> {
+        let location = Point::new(longitude, latitude);
+
+        let mut distances: Vec<(f64, &StopPlatforms)> = self.stop_platforms
+            .iter()
+            .map(|sp| (sp.distance_to_location(location), sp))
+            .collect();
+
+        distances.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+        distances.iter().take(count).map(|&(_, sp)| sp).collect()
     }
 }
