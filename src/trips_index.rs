@@ -32,13 +32,12 @@ impl<'a> TripsIndex<'a> {
     pub fn new(gtfs: &'a Gtfs) -> Self {
         println!("[i] Building primary stop_id -> trips[] index");
         let start = Instant::now();
-        let mut singular_trips_index: HashMap<&str, HashSet<&String>> = HashMap::new();
+        let mut singular_trips_index: HashMap<&str, HashSet<&str>> = HashMap::new();
 
         gtfs.stops.values().for_each(|s| {
-            let direct_trips: HashSet<&String> = gtfs.trips
+            let direct_trips: HashSet<&str> = gtfs.trips
                 .values()
-                .filter(|t| t.stop_times.iter().any(|st| st.stop.id == s.id))
-                .map(|t| &t.id)
+                .filter_map(|t| t.stop_times.iter().any(|st| st.stop.id() == s.id()).then_some(t.id.as_str()))
                 .collect();
 
             singular_trips_index.insert(s.id(), direct_trips);
@@ -62,8 +61,8 @@ impl<'a> TripsIndex<'a> {
                             .intersection(trips_to)
                             .filter_map(|t| {
                                 if let Some(trip) = gtfs.get_trip(t).ok() {
-                                    if let Some(from_idx) = trip.stop_times.iter().position(|st| st.stop.id == from.id()) {
-                                        if let Some(to_idx) = trip.stop_times.iter().position(|st| st.stop.id == to.id()) {
+                                    if let Some(from_idx) = trip.stop_times.iter().position(|st| st.stop.id() == from.id()) {
+                                        if let Some(to_idx) = trip.stop_times.iter().position(|st| st.stop.id() == to.id()) {
                                             if from_idx < to_idx {
                                                 return Some(DirectTrip {
                                                     trip,   
