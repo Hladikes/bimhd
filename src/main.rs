@@ -2,11 +2,13 @@ mod stops_index;
 mod trips_index;
 mod util;
 
-use std::{collections::HashSet, time::Instant};
-use gtfs_structures::{Gtfs, Id, Trip};
+use std::time::Instant;
+use gtfs_structures::{Gtfs, Id};
 use stops_index::StopNamesIndex;
 use trips_index::TripsIndex;
 use util::read_line;
+
+use crate::trips_index::DirectTrip;
 
 fn main() {
     let gtfs = Gtfs::new("gtfs.zip").unwrap();
@@ -25,7 +27,7 @@ fn main() {
         let from = *stops_index.search_by_name(from_stop_name.as_str()).get(0).unwrap();
         let to = *stops_index.search_by_name(to_stop_name.as_str()).get(0).unwrap();
 
-        let mut all_trips: Vec<&Trip> = vec![];
+        let mut all_trips: Vec<&DirectTrip> = vec![];
 
         from.platforms.iter().for_each(|fp| {
             to.platforms.iter().for_each(|tp| {
@@ -37,23 +39,17 @@ fn main() {
 
         let elapsed = start.elapsed();
 
-        let possible_routes: HashSet<&String> = all_trips
-            .iter()
-            .map(|t| {
-                let route = gtfs.get_route(t.route_id.as_str()).unwrap();
-                let route_name = route.short_name.as_ref().unwrap();
-                route_name
-            })
-            .collect();
-
-        println!("   -> Going from {} to {}", from.stop_name, to.stop_name);
-        println!(
-            "   -> total trips {}, {:?}, {:?}", 
-            all_trips.len(), 
-            possible_routes, 
-            all_trips.iter().map(|t| t.id()).collect::<Vec<&str>>()
-        );
-        
-        println!("   -> took {} ms\n", elapsed.as_millis());
+        println!("-> Going from {} to {}", from.stop_name, to.stop_name);
+        println!("-> Total trips {}", all_trips.len());
+        all_trips.iter().for_each(|t| {
+            println!(
+                "-> Trip {}, duration {} s, route {} -> {:#?}", 
+                t.trip.id(), 
+                t.get_duration(), 
+                gtfs.get_route(&t.trip.route_id).map_or("-".to_string(), |r| r.short_name.clone().unwrap_or("-".to_string())), 
+                t.get_stop_names()
+            )
+        });
+        println!("-> Took {} ms\n", elapsed.as_millis());
     }
 }
