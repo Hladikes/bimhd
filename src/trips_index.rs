@@ -1,4 +1,5 @@
 use std::{collections::{HashMap, HashSet}, time::Instant};
+use geo::{HaversineDistance, Point};
 use gtfs_structures::{Gtfs, Id, StopTime, Trip};
 
 pub struct DirectTrip<'a> {
@@ -25,7 +26,8 @@ impl<'a> DirectTrip<'a> {
 }
 
 pub struct TripsIndex<'a> {
-    index: HashMap<(&'a str, &'a str), Vec<DirectTrip<'a>>>
+    index: HashMap<(&'a str, &'a str), Vec<DirectTrip<'a>>>,
+    distances: HashMap<(&'a str, &'a str), f64>,
 }
 
 impl<'a> TripsIndex<'a> {
@@ -85,8 +87,30 @@ impl<'a> TripsIndex<'a> {
         });
 
         println!("[i] Done; Took {} s; Index size is {}", start.elapsed().as_secs(), trips_index.len());
+
+        println!("[i] Building distance (stop_id, stop_id) -> f64 index");
+        
+        let mut distances: HashMap<(&str, &str), f64> = HashMap::new();
+        let start = Instant::now();
+        gtfs.stops.values().for_each(|from| {
+            gtfs.stops.values().for_each(|to| {
+                if from.id() == to.id() || distances.contains_key(&(to.id(), from.id())) || distances.contains_key(&(from.id(), to.id())) {
+                    return ();
+                }
+
+                let from_location = Point::new(from.longitude.unwrap_or(0.0), from.latitude.unwrap_or(0.0));
+                let to_location = Point::new(to.longitude.unwrap_or(0.0), to.latitude.unwrap_or(0.0));
+                let distance = from_location.haversine_distance(&to_location);
+
+                distances.insert((to.id(), from.id()), distance);
+                distances.insert((from.id(), to.id()), distance);
+            });
+        });
+        println!("[i] Done; Took {} s", start.elapsed().as_secs());
+
         TripsIndex {
-            index: trips_index
+            index: trips_index,
+            distances,
         }
     }
 
@@ -103,7 +127,7 @@ impl<'a> TripsIndex<'a> {
         });
 
         graph
-    }
+    } 
 
     pub fn get_direct_trips(&self, from_stop_id: &'a str, to_stop_id: &'a str) -> Option<&Vec<DirectTrip>> {
         self.index.get(&(from_stop_id, to_stop_id))
