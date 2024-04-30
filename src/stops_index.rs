@@ -88,14 +88,10 @@ impl<'a> StopNamesIndex<'_> {
         distances.iter().take(count).map(|(_, sp)| sp.clone()).collect()
     }
 
-    pub fn get_stop_name_by_id(&self, stop_id: &str) -> Option<String> {
-        for stop_platform in &self.stop_platforms {
-            for platform in &stop_platform.platforms {
-                if platform.id == stop_id {
-                    return Some(stop_platform.stop_name.clone());
-                }
-            }
-        }
-        None
+    pub fn get_stop_name_from_id(&self, id: &str) -> Option<&str> {
+        self.stop_platforms
+            .values()
+            .find(|sp| sp.platforms.iter().any(|p| p.id == id))
+            .map(|sp| sp.stop_name.as_str())
     }
 }

@@ -11,27 +11,41 @@ use chrono::{DateTime, Local};
 
 fn main() {
     let current_time: DateTime<Local> = DateTime::<Local>::from(SystemTime::now()).with_timezone(&Local);
+    print!("Teraz je: {}\n", format_time(current_time));
     let gtfs = Gtfs::new("gtfs.zip").unwrap();
     let stops_index = StopNamesIndex::new(&gtfs);
     let trips_index = TripsIndex::new(&gtfs);
     let graph = trips_index.build_graph();
 
-    //loop {
-        let start = Instant::now();
-        match find_route(&graph, "000000035700001", "000000050000001", current_time) {
-            Some(segments) => {
-                println!("Route found with the following segments:");
-                for segment in segments {
-                    println!("Trip ID: {}, From: {:?}, To: {:?}, Depart at: {:?}, Arrive by: {:?}, Duration: {:?}", 
-                             segment.trip_id, stops_index.get_stop_name_by_id(segment.start_stop), stops_index.get_stop_name_by_id(segment.end_stop),
-                             segment.departure_time, segment.arrival_time, segment.duration);
-                }
-            },
-            None => println!("No route available."),
-        }
+    let start_stop = "000000035700001"; //cintorin
+    let end_stop = "000000009300025"; //zochova
+    
+    let start = Instant::now();
 
-        let elapsed = start.elapsed();
-        println!("Search took {} ms\n", elapsed.as_millis());
+    let route = find_route(&graph, start_stop, end_stop, current_time);
+  
+    match route {
+        Some(path) => {
+            println!("Route found");
+            for segment in path {
+                println!(
+                    "Trip ID: {}, Start Stop: {}, End Stop: {}, Departure: {:?}, Arrival: {:?}, Duration: {:?} seconds",
+                    segment.trip_id,
+                    segment.start_stop,
+                    segment.end_stop,
+                    DateTime::<Local>::from(segment.departure_time).format("%H:%M:%S"),
+                    DateTime::<Local>::from(segment.arrival_time).format("%H:%M:%S"),
+                    segment.duration.as_secs()
+                );
+            }
+        },
+        None => println!("No route available from {} to {}.", start_stop, end_stop),
+    }
+
+    let elapsed = start.elapsed();
+    println!("Search took {} ms\n", elapsed.as_millis());
+
+    // loop {
         // print!("Cintorin Slavicie (long: 17.068, lat: 48.158)\n");
         // print!("Zochova (long: 17.106, lat: 48.144)\n");
         // print!("Hodzovo (long: 17.107, lat: 48.148)\n");
