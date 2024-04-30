@@ -93,6 +93,7 @@ impl<'a> TransitIndex<'a> {
             stops_graph: HashMap::new(),
         };
 
+        // Build of an index used for a quick direct trip lookup between two stops
         transit_index.direct_trips.keys().into_iter().for_each(|(from, to)| {
             let first_entry = transit_index.stops_graph.entry(from).or_insert(HashMap::new());
             let second_entry = first_entry.entry(to).or_insert(Vec::new());
@@ -113,9 +114,10 @@ impl<'a> TransitIndex<'a> {
             .map(|s| s.as_ref().name.as_ref().unwrap().as_str())
             .collect::<BTreeSet<&str>>();
         
+        // This map serves both as an index for stop_id -> stop (and its platforms),
+        // and as a storage for all grouped stop platforms
         let mut stop_platforms: HashMap<String, Arc<StopPlatforms>> = HashMap::new();
 
-        // (weight, stop name, vector of all stops / platforms for a given stop name)
         stop_names.iter().for_each(|stop_name| {
             // Get all stop platforms for a given stop name
             let platforms: Vec<Arc<Stop>> = gtfs.stops
@@ -145,6 +147,9 @@ impl<'a> TransitIndex<'a> {
     fn build_direct_trips(gtfs: &'a Gtfs) -> HashMap<(&str, &str), Vec<Arc<DirectTrip>>> {
         println!("[i] Building primary stop_id -> trips[] index");
         let start = Instant::now();
+        
+        // First index used for indexing stops and corresponding trips, which do include
+        // target stops. This is especially helpful for the build up of a second index
         let mut singular_trips_index: HashMap<&str, HashSet<&str>> = HashMap::new();
 
         gtfs.stops.values().for_each(|s| {
@@ -160,6 +165,8 @@ impl<'a> TransitIndex<'a> {
 
         println!("[i] Building secondary (stop_id, stop_id) -> trips[] index");
         let start = Instant::now();
+
+        // Secondary index used for quick lookups for direct trips between two stops
         let mut trips_index: HashMap<(&str, &str), Vec<Arc<DirectTrip>>> = HashMap::new();
         
         gtfs.stops.values().for_each(|from| {
@@ -207,12 +214,16 @@ impl<'a> TransitIndex<'a> {
             });
         });
 
+        println!("[i] Done; Took {} s", start.elapsed().as_secs());
+
         trips_index
     }
 
     fn build_distances(gtfs: &'a Gtfs) -> HashMap<(&str, &str), f64> {
-        let mut distances: HashMap<(&str, &str), f64> = HashMap::new();
         let start = Instant::now();
+
+        // Secondary index used for quick lookups for distances between two stops
+        let mut distances: HashMap<(&str, &str), f64> = HashMap::new();
         gtfs.stops.values().for_each(|from| {
             gtfs.stops.values().for_each(|to| {
                 if from.id() == to.id() || distances.contains_key(&(to.id(), from.id())) || distances.contains_key(&(from.id(), to.id())) {
@@ -251,7 +262,7 @@ impl<'a> TransitIndex<'a> {
             .map(|sp| (sp.distance_to_location(location), sp.clone()))
             .collect();
 
-        distances.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+        distances.sort_by(|a, b| a.0.total_cmp(&b.0));
         distances.iter().take(count).map(|(_, sp)| sp.clone()).collect()
     }
 
@@ -266,12 +277,7 @@ impl<'a> TransitIndex<'a> {
             .map(|sp| sp.stop_name.as_str())
     }
 
-    pub fn find_route(
-        &self,
-        start_stop: &str,
-        end_stop: &str,
-        start_time: DateTime<Local>,
-    ) -> Option<Vec<RouteSegment>> {
+    pub fn find_route(&self, start_stop: &str, end_stop: &str, start_time: DateTime<Local>) -> Option<Vec<RouteSegment>> {
         let mut heap: BinaryHeap<State> = BinaryHeap::new();
         let mut distances: HashMap<&str, u32> = HashMap::new();
         let mut predecessors: HashMap<&str, RouteSegment> = HashMap::new();
