@@ -27,20 +27,20 @@ impl<'a> DirectTrip<'a> {
 }
 
 pub struct TripsIndex<'a> {
-    index: HashMap<(&'a str, &'a str), Vec<DirectTrip<'a>>>
+    index: HashMap<(&'a str, &'a str), Vec<DirectTrip<'a>>>,
+    distances: HashMap<(&'a str, &'a str), f64>,
 }
 
 impl<'a> TripsIndex<'a> {
     pub fn new(gtfs: &'a Gtfs) -> Self {
         println!("[i] Building primary stop_id -> trips[] index");
         let start = Instant::now();
-        let mut singular_trips_index: HashMap<&str, HashSet<&String>> = HashMap::new();
+        let mut singular_trips_index: HashMap<&str, HashSet<&str>> = HashMap::new();
 
         gtfs.stops.values().for_each(|s| {
-            let direct_trips: HashSet<&String> = gtfs.trips
+            let direct_trips: HashSet<&str> = gtfs.trips
                 .values()
-                .filter(|t| t.stop_times.iter().any(|st| st.stop.id == s.id))
-                .map(|t| &t.id)
+                .filter_map(|t| t.stop_times.iter().any(|st| st.stop.id() == s.id()).then_some(t.id.as_str()))
                 .collect();
 
             singular_trips_index.insert(s.id(), direct_trips);
@@ -55,41 +55,73 @@ impl<'a> TripsIndex<'a> {
         gtfs.stops.values().for_each(|from| {
             gtfs.stops.values().for_each(|to| {
                 if from.id() == to.id() {
-                    return ()
+                    return ();
                 }
 
-                if let Some(trips_from) = singular_trips_index.get(from.id()) {
-                    if let Some(trips_to) = singular_trips_index.get(to.id()) {
-                        let direct_trips: Vec<DirectTrip> = trips_from
-                            .intersection(trips_to)
-                            .filter_map(|t| {
-                                if let Some(trip) = gtfs.get_trip(t).ok() {
-                                    if let Some(from_idx) = trip.stop_times.iter().position(|st| st.stop.id == from.id()) {
-                                        if let Some(to_idx) = trip.stop_times.iter().position(|st| st.stop.id == to.id()) {
-                                            if from_idx < to_idx {
-                                                return Some(DirectTrip {
-                                                    trip,   
-                                                    stop_times: &trip.stop_times[from_idx..to_idx + 1],
-                                                })
-                                            }
-                                        }
-                                    };
-                                }
-
-                                None
-                            }).collect();
+                let Some(trips_from) = singular_trips_index.get(from.id()) else {
+                    return ();
+                };
+                
+                let Some(trips_to) = singular_trips_index.get(to.id()) else {
+                    return ();
+                };
+                
+                let direct_trips: Vec<DirectTrip> = trips_from
+                    .intersection(trips_to)
+                    .filter_map(|t| {
+                        let Some(trip) = gtfs.get_trip(t).ok() else {
+                            return None;
+                        };
                         
-                        if direct_trips.len() > 0 {
-                            trips_index.insert((from.id(), to.id()), direct_trips);
+                        let Some(from_idx) = trip.stop_times.iter().position(|st| st.stop.id() == from.id()) else {
+                            return None;
+                        };
+
+                        let Some(to_idx) = trip.stop_times.iter().position(|st| st.stop.id() == to.id()) else {
+                            return None;
+                        };
+                        
+                        if from_idx < to_idx {
+                            return Some(DirectTrip {
+                                trip,   
+                                stop_times: &trip.stop_times[from_idx..to_idx + 1],
+                            })
                         }
-                    }   
+
+                        None
+                    }).collect();
+                
+                if direct_trips.len() > 0 {
+                    trips_index.insert((from.id(), to.id()), direct_trips);
                 }
             });
         });
 
         println!("[i] Done; Took {} s; Index size is {}", start.elapsed().as_secs(), trips_index.len());
+
+        println!("[i] Building distance (stop_id, stop_id) -> f64 index");
+        
+        let mut distances: HashMap<(&str, &str), f64> = HashMap::new();
+        let start = Instant::now();
+        gtfs.stops.values().for_each(|from| {
+            gtfs.stops.values().for_each(|to| {
+                if from.id() == to.id() || distances.contains_key(&(to.id(), from.id())) || distances.contains_key(&(from.id(), to.id())) {
+                    return ();
+                }
+
+                let from_location = Point::new(from.longitude.unwrap_or(0.0), from.latitude.unwrap_or(0.0));
+                let to_location = Point::new(to.longitude.unwrap_or(0.0), to.latitude.unwrap_or(0.0));
+                let distance = from_location.haversine_distance(&to_location);
+
+                distances.insert((to.id(), from.id()), distance);
+                distances.insert((from.id(), to.id()), distance);
+            });
+        });
+        println!("[i] Done; Took {} s", start.elapsed().as_secs());
+
         TripsIndex {
-            index: trips_index
+            index: trips_index,
+            distances,
         }
     }
 
