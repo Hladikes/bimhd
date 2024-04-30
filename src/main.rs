@@ -6,25 +6,26 @@ use std::time::{Instant, SystemTime};
 use gtfs_structures::{Gtfs, Id};
 use stops_index::StopNamesIndex;
 use trips_index::{TripsIndex, DirectTrip, find_route};
-use util::read_line;
+use util::{read_line, format_time};
+use chrono::{DateTime, Local};
 
 fn main() {
+    let current_time: DateTime<Local> = DateTime::<Local>::from(SystemTime::now()).with_timezone(&Local);
     let gtfs = Gtfs::new("gtfs.zip").unwrap();
     let stops_index = StopNamesIndex::new(&gtfs);
     let trips_index = TripsIndex::new(&gtfs);
-
     let graph = trips_index.build_graph();
 
-    // loop {
+    //loop {
         let start = Instant::now();
-        let current_time = SystemTime::now();
-
-        match find_route(&graph, "000000035700001", "000000009300025", current_time) {
-            Some(trip_ids) => {
-                println!("Route found:");
-                trip_ids.iter().for_each(|id| {
-                    println!("Trip ID: {}", id);
-                });
+        match find_route(&graph, "000000035700001", "000000050000001", current_time) {
+            Some(segments) => {
+                println!("Route found with the following segments:");
+                for segment in segments {
+                    println!("Trip ID: {}, From: {:?}, To: {:?}, Depart at: {:?}, Arrive by: {:?}, Duration: {:?}", 
+                             segment.trip_id, stops_index.get_stop_name_by_id(segment.start_stop), stops_index.get_stop_name_by_id(segment.end_stop),
+                             segment.departure_time, segment.arrival_time, segment.duration);
+                }
             },
             None => println!("No route available."),
         }

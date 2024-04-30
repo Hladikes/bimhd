@@ -1,4 +1,5 @@
 use std::io::Write;
+use chrono::{DateTime, Local};
 
 pub fn read_line() -> String {
     let stdin = std::io::stdin();
@@ -7,4 +8,8 @@ pub fn read_line() -> String {
     buffer.clear();
     stdin.read_line(&mut buffer).expect("An error has occoured while reading line");
     buffer.trim().to_string()
+}
+
+pub fn format_time(time: DateTime<Local>) -> String {
+    time.format("%H:%M:%S").to_string()
 }

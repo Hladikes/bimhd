@@ -78,4 +78,15 @@ impl StopNamesIndex {
         distances.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
         distances.iter().take(count).map(|&(_, sp)| sp).collect()
     }
+
+    pub fn get_stop_name_by_id(&self, stop_id: &str) -> Option<String> {
+        for stop_platform in &self.stop_platforms {
+            for platform in &stop_platform.platforms {
+                if platform.id == stop_id {
+                    return Some(stop_platform.stop_name.clone());
+                }
+            }
+        }
+        None
+    }
 }

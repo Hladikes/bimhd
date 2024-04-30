@@ -1,5 +1,4 @@
 use std::{collections::{HashMap, HashSet, BinaryHeap}, time::Instant};
-use geo::{HaversineDistance, Point};
 use gtfs_structures::{Gtfs, Id, StopTime, Trip};
 use std::cmp::Ordering;
 use std::time::{Duration, SystemTime};
@@ -110,68 +109,78 @@ impl<'a> TripsIndex<'a> {
     }
 }
 
+#[derive(Debug)]
+pub struct RouteSegment<'a> {
+    pub trip_id: &'a str,
+    pub start_stop: &'a str,
+    pub end_stop: &'a str,
+    pub departure_time: SystemTime,
+    pub arrival_time: SystemTime,
+    pub duration: Duration,
+}
 
-// fn get_stop_ids_by_name(gtfs: &Gtfs, stop_name: &str) -> Vec<&str> {
-//     gtfs.stops.values()
-//         .filter(|stop| stop.name.as_ref() == Some(stop_name))
-//         .map(|stop| stop.id.as_str())
-//         .collect()
+// pub fn find_route<'a>(
+//     graph: &'a HashMap<&'a str, HashMap<&'a str, Vec<&'a DirectTrip<'a>>>>,
+//     start: &'a str,
+//     end: &'a str,
+//     current_time: SystemTime,
+// ) -> Option<Vec<RouteSegment<'a>>> {
+//     let mut heap = BinaryHeap::new();
+//     let mut distances = HashMap::new();
+//     let mut predecessors = HashMap::<&'a str, (&'a DirectTrip<'a>, SystemTime)>::new();
+
+//     distances.insert(start, 0);
+//     heap.push(State { cost: 0, position: start });
+
+//     while let Some(State { cost, position }) = heap.pop() {
+//         if position == end {
+//             let mut path = Vec::new();
+//             let mut step = position;
+
+//             while let Some(&(trip, departure_time)) = predecessors.get(step) {
+//                 let start_stop = trip.stop_times.first().unwrap().stop.id();
+//                 let end_stop = trip.stop_times.last().unwrap().stop.id();
+//                 let duration = Duration::from_secs(trip.get_duration() as u64);
+//                 let arrival_time = departure_time + duration;
+
+//                 path.push(RouteSegment {
+//                     trip_id: trip.trip.id(),
+//                     start_stop,
+//                     end_stop,
+//                     departure_time,
+//                     arrival_time,
+//                     duration,
+//                 });
+//                 step = start_stop; // Move to the next segment
+//             }
+//             path.reverse();
+//             return Some(path);
+//         }
+
+//         if let Some(neighbours) = graph.get(position) {
+//             for (&neighbour, trips) in neighbours {
+//                 for trip in trips {
+//                     let trip_departure_time = trip.stop_times.first().unwrap().departure_time.unwrap(); // Simplified handling
+
+//                     // Convert trip departure time to SystemTime, compare with current_time
+//                     let trip_departure_systemtime = trip_departure_time.into();
+//                     if trip_departure_systemtime >= current_time {
+//                         let travel_cost = trip.get_duration() + (trip_departure_systemtime.duration_since(current_time).unwrap_or_else(|_| Duration::from_secs(0)).as_secs() as u32);
+
+//                         let next = State { cost: cost + travel_cost, position: neighbour };
+//                         if next.cost < *distances.get(neighbour).unwrap_or(&u32::MAX) {
+//                             heap.push(next);
+//                             distances.insert(neighbour, next.cost);
+//                             predecessors.insert(neighbour, (trip, trip_departure_systemtime));
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//     }
+
+//     None
 // }
-
-pub fn find_route<'a>(
-    graph: &'a HashMap<&'a str, HashMap<&'a str, Vec<&'a DirectTrip<'a>>>>,
-    start: &'a str,
-    end: &'a str,
-    current_time: SystemTime,
-) -> Option<Vec<&'a str>> {
-    let mut heap = BinaryHeap::new();
-    let mut distances = HashMap::new();
-    let mut predecessors = HashMap::<&'a str, &'a DirectTrip<'a>>::new();
-
-    distances.insert(start, 0);
-    heap.push(State { cost: 0, position: start });
-
-    while let Some(State { cost, position }) = heap.pop() {
-        if position == end {
-            let mut path = Vec::new();
-            let mut step = position;
-
-            while let Some(trip) = predecessors.get(step) {
-                path.push(trip.trip.id());
-                step = trip.stop_times.first().unwrap().stop.id(); // Assume stop_times is never empty
-            }
-            path.reverse();
-            return Some(path);
-        }
-
-        if let Some(neighbours) = graph.get(position) {
-            for (&neighbour, trips) in neighbours {
-                for trip in trips {
-                    let trip_departure_time = trip.stop_times.first().unwrap().departure_time.unwrap(); // Simplified handling
-
-                    // Convert trip departure time to SystemTime, compare with current_time
-                    let trip_departure_systemtime = convert_to_systemtime(trip_departure_time);
-                    if trip_departure_systemtime >= current_time {
-                        let travel_cost = trip.get_duration() + (trip_departure_systemtime.duration_since(current_time).unwrap_or_else(|_| Duration::from_secs(0)).as_secs() as u32);
-
-                        let next = State { cost: cost + travel_cost, position: neighbour };
-                        if next.cost < *distances.get(neighbour).unwrap_or(&u32::MAX) {
-                            heap.push(next);
-                            distances.insert(neighbour, next.cost);
-                            predecessors.insert(neighbour, trip);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    None
-}
-
-fn convert_to_systemtime(gtfs_time: u32) -> SystemTime {
-    SystemTime::now()
-}
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 struct State<'a> {
