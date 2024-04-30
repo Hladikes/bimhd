@@ -32,8 +32,8 @@ impl StopNamesIndex {
         // always have the same order of elements in set
         let stop_names = gtfs.stops
             .values()
-            .map(|s| s.as_ref().name.clone().unwrap())
-            .collect::<BTreeSet<String>>();
+            .map(|s| s.as_ref().name.as_ref().unwrap().as_str())
+            .collect::<BTreeSet<&str>>();
 
         // (weight, stop name, vector of all stops / platforms for a given stop name)
         let stop_platforms: Vec<StopPlatforms> = stop_names
@@ -41,11 +41,16 @@ impl StopNamesIndex {
             .map(|stop_name| {
                 // Get all stop platforms for a given stop name
                 StopPlatforms {
-                    stop_name: stop_name.clone(),
+                    stop_name: stop_name.to_string(),
                     platforms: gtfs.stops
                         .values()
-                        .filter(|s| s.as_ref().name.as_ref().is_some_and(|n| n == stop_name))
-                        .map(|s| (*s).clone())
+                        .filter_map(|s| {
+                            if s.as_ref().name.as_ref().is_some_and(|n| n.as_str() == *stop_name) {
+                                Some((*s).clone())
+                            } else {
+                                None
+                            }
+                        })
                         .collect(),
                 }
             }).collect();
