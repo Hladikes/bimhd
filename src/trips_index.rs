@@ -1,5 +1,8 @@
-use std::{collections::{HashMap, HashSet}, time::Instant};
+use std::{collections::{HashMap, HashSet, BinaryHeap}, time::Instant};
+use geo::{HaversineDistance, Point};
 use gtfs_structures::{Gtfs, Id, StopTime, Trip};
+use std::cmp::Ordering;
+use std::time::{Duration, SystemTime};
 
 pub struct DirectTrip<'a> {
     pub trip: &'a Trip,
@@ -94,19 +97,96 @@ impl<'a> TripsIndex<'a> {
     pub fn build_graph(&self) -> HashMap<&str, HashMap<&str, Vec<&DirectTrip>>> {
         let mut graph: HashMap<&str, HashMap<&str, Vec<&DirectTrip>>> = HashMap::new();
 
-        self.index.keys().into_iter().for_each(|(from, to)| {
-            let first_entry = graph.entry(from).or_insert(HashMap::new());
-            let second_entry = first_entry.entry(to).or_insert(Vec::new());
-
-            if let Some(trip) = self.index.get(&(from, to)) {
-                second_entry.extend(trip)
-            }
-        });
-
+        for ((from, to), trips) in &self.index {
+            let to_map = graph.entry(from).or_default();
+            let trip_list = to_map.entry(to).or_default();
+            trip_list.extend(trips.iter().map(|trip| trip));
+        }
         graph
     }
 
     pub fn get_direct_trips(&self, from_stop_id: &'a str, to_stop_id: &'a str) -> Option<&Vec<DirectTrip>> {
         self.index.get(&(from_stop_id, to_stop_id))
+    }
+}
+
+
+// fn get_stop_ids_by_name(gtfs: &Gtfs, stop_name: &str) -> Vec<&str> {
+//     gtfs.stops.values()
+//         .filter(|stop| stop.name.as_ref() == Some(stop_name))
+//         .map(|stop| stop.id.as_str())
+//         .collect()
+// }
+
+pub fn find_route<'a>(
+    graph: &'a HashMap<&'a str, HashMap<&'a str, Vec<&'a DirectTrip<'a>>>>,
+    start: &'a str,
+    end: &'a str,
+    current_time: SystemTime,
+) -> Option<Vec<&'a str>> {
+    let mut heap = BinaryHeap::new();
+    let mut distances = HashMap::new();
+    let mut predecessors = HashMap::<&'a str, &'a DirectTrip<'a>>::new();
+
+    distances.insert(start, 0);
+    heap.push(State { cost: 0, position: start });
+
+    while let Some(State { cost, position }) = heap.pop() {
+        if position == end {
+            let mut path = Vec::new();
+            let mut step = position;
+
+            while let Some(trip) = predecessors.get(step) {
+                path.push(trip.trip.id());
+                step = trip.stop_times.first().unwrap().stop.id(); // Assume stop_times is never empty
+            }
+            path.reverse();
+            return Some(path);
+        }
+
+        if let Some(neighbours) = graph.get(position) {
+            for (&neighbour, trips) in neighbours {
+                for trip in trips {
+                    let trip_departure_time = trip.stop_times.first().unwrap().departure_time.unwrap(); // Simplified handling
+
+                    // Convert trip departure time to SystemTime, compare with current_time
+                    let trip_departure_systemtime = convert_to_systemtime(trip_departure_time);
+                    if trip_departure_systemtime >= current_time {
+                        let travel_cost = trip.get_duration() + (trip_departure_systemtime.duration_since(current_time).unwrap_or_else(|_| Duration::from_secs(0)).as_secs() as u32);
+
+                        let next = State { cost: cost + travel_cost, position: neighbour };
+                        if next.cost < *distances.get(neighbour).unwrap_or(&u32::MAX) {
+                            heap.push(next);
+                            distances.insert(neighbour, next.cost);
+                            predecessors.insert(neighbour, trip);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
+fn convert_to_systemtime(gtfs_time: u32) -> SystemTime {
+    SystemTime::now()
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+struct State<'a> {
+    cost: u32,
+    position: &'a str,
+}
+
+impl<'a> Ord for State<'a> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other.cost.cmp(&self.cost)
+    }
+}
+
+impl<'a> PartialOrd for State<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
