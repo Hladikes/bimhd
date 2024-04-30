@@ -7,8 +7,7 @@ use gtfs_structures::{Gtfs, Id};
 use stops_index::StopNamesIndex;
 use trips_index::TripsIndex;
 use util::read_line;
-
-use crate::trips_index::DirectTrip;
+use trips_index::DirectTrip;
 
 fn main() {
     let gtfs = Gtfs::new("gtfs.zip").unwrap();
@@ -44,8 +43,8 @@ fn main() {
 
         let start = Instant::now();
         
-        let from = *stops_index.search_by_name(from_stop_name.as_str()).get(0).unwrap();
-        let to = *stops_index.search_by_name(to_stop_name.as_str()).get(0).unwrap();
+        let from = stops_index.search_by_name(from_stop_name.as_str())[0].clone();
+        let to = stops_index.search_by_name(to_stop_name.as_str())[0].clone();
 
         let mut all_trips: Vec<&DirectTrip> = vec![];
 
