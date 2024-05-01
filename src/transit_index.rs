@@ -1,5 +1,5 @@
 use std::{cmp::Ordering, collections::{BTreeSet, BinaryHeap, HashMap, HashSet}, sync::Arc, time::{Duration, Instant, SystemTime}};
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, NaiveTime};
 use geo::{HaversineDistance, Point};
 use gtfs_structures::{Gtfs, Id, Stop, StopTime, Trip};
 use trigram::similarity;
@@ -50,7 +50,7 @@ impl<'a> DirectTrip<'a> {
 struct State<'a> {
     cost: u32,
     position: &'a str,
-    arrival_time: SystemTime,
+    arrival_time: NaiveTime,
 }
 
 impl<'a> Ord for State<'a> {
@@ -70,8 +70,8 @@ pub struct RouteSegment {
     pub trip_id: String,
     pub start_stop: String,
     pub end_stop: String,
-    pub departure_time: SystemTime,
-    pub arrival_time: SystemTime,
+    pub departure_time: NaiveTime,
+    pub arrival_time: NaiveTime,
     pub duration: Duration,
 }
 
@@ -283,22 +283,18 @@ impl<'a> TransitIndex<'a> {
         &self,
         start_stop: &'a str,
         end_stop: &'a str,
-        start_time: DateTime<Local>,
     ) -> Option<Vec<RouteSegment>> {
-        // Initialize data structures
         let mut heap: BinaryHeap<State> = BinaryHeap::new();
         let mut distances: HashMap<&str, u32> = HashMap::new();
         let mut predecessors: HashMap<&str, RouteSegment> = HashMap::new();
-        let start_system_time: SystemTime = SystemTime::from(start_time);
+        let start_time: NaiveTime = DateTime::<Local>::from(SystemTime::now()).with_timezone(&Local).time();
+        
+
+        println!("Starting search from: {} to {}, at {:?}", start_stop, end_stop, start_time);
     
-        println!("Starting search from: {} to {}, at {:?}", start_stop, end_stop, start_system_time);
-    
-        // Setup initial state
         distances.insert(start_stop, 0);
-        heap.push(State { cost: 0, position: start_stop, arrival_time: start_system_time });
-        println!("Initial state set at: {:?}", start_system_time);
+        heap.push(State { cost: 0, position: start_stop, arrival_time: start_time });
     
-        // Process the heap
         while let Some(current) = heap.pop() {
             println!("Processing stop: {} with cost {} and arrival at {:?}", current.position, current.cost, current.arrival_time);
             if current.position == end_stop {
@@ -312,8 +308,6 @@ impl<'a> TransitIndex<'a> {
                 }
             }
         }
-    
-        println!("No route found.");
         None
     }
 }
@@ -340,18 +334,24 @@ fn process_neighbor_trips<'a>(
     neighbor: &'a str
 ) {
     for trip in trips {
-        let trip_start_time = SystemTime::UNIX_EPOCH + Duration::from_secs(trip.stop_times.first().unwrap().departure_time.unwrap() as u64);
-        println!("Evaluating trip {} from {} to {} scheduled to start at {:?}", trip.trip.id, current.position, neighbor, trip_start_time);
-        
-        // Log comparison of trip start time to current arrival time
+        let sec_from_midnight = trip.stop_times.first().unwrap().departure_time.unwrap();
+
+        if NaiveTime::from_hms_opt(sec_from_midnight / 3600, (sec_from_midnight % 3600) / 60, sec_from_midnight % 60).is_none() {
+            println!("Invalid time found: {}, trip: {}", sec_from_midnight, trip.trip.id);
+            continue;
+        }
+
+        let trip_start_time: NaiveTime = NaiveTime::from_hms_opt(sec_from_midnight / 3600, (sec_from_midnight % 3600) / 60, sec_from_midnight % 60).unwrap();
+             
         if trip_start_time >= current.arrival_time {
             let travel_time = trip.get_duration();
             let new_cost = current.cost + travel_time;
             let new_arrival_time = trip_start_time + Duration::from_secs(travel_time as u64);
-            println!("Valid trip found. Trip starts at {:?}, current arrival time: {:?}. New arrival time if taken: {:?}", trip_start_time, current.arrival_time, new_arrival_time);
+
+            println!("Trip found {},from {} to {}, new arrival_time: {}", trip.trip.id, current.position, neighbor, new_arrival_time);
 
             if new_cost < *distances.get(neighbor).unwrap_or(&u32::MAX) {
-                println!("Updating route to {} with better cost via trip {}. New cost: {}, New arrival time: {:?}", neighbor, trip.trip.id, new_cost, new_arrival_time);
+                println!("Updating route to {} with better cost via trip {}. New cost: {}, New arrival time: {}", neighbor, trip.trip.id, new_cost, new_arrival_time);
                 heap.push(State { cost: new_cost, position: neighbor, arrival_time: new_arrival_time });
                 distances.insert(neighbor, new_cost);
                 predecessors.insert(neighbor, RouteSegment {
@@ -362,11 +362,7 @@ fn process_neighbor_trips<'a>(
                     arrival_time: new_arrival_time,
                     duration: Duration::from_secs(travel_time as u64),
                 });
-            } else {
-                println!("More costly path found to {} via trip {}, cost: {}, hence skipped", neighbor, trip.trip.id, new_cost);
-            }
-        } else {
-            println!("Skipping trip {} as it starts too early. Trip start time: {:?}, Current arrival time: {:?}", trip.trip.id, trip_start_time, current.arrival_time);
-        }
+            } 
+        } 
     }
 }

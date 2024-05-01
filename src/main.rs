@@ -17,10 +17,11 @@ fn main() {
 
     let start_stop = "000000035700001"; //cintorin
     let end_stop = "000000009300025"; //zochova
+    let zochova = "000000050000001";
     
     let start = Instant::now();
 
-    let route = transit_index.find_route(start_stop, end_stop, current_time);
+    let route = transit_index.find_route(start_stop, zochova);
   
     match route {
         Some(path) => {
@@ -31,8 +32,8 @@ fn main() {
                     segment.trip_id,
                     segment.start_stop,
                     segment.end_stop,
-                    DateTime::<Local>::from(segment.departure_time).format("%H:%M:%S"),
-                    DateTime::<Local>::from(segment.arrival_time).format("%H:%M:%S"),
+                    segment.departure_time,
+                    segment.arrival_time,
                     segment.duration.as_secs()
                 );
             }
