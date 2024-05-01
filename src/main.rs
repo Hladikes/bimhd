@@ -15,13 +15,13 @@ fn main() {
     let gtfs = Gtfs::new("gtfs.zip").unwrap();
     let transit_index = TransitIndex::new(&gtfs);
 
-    let start_stop = "000000035700001"; //cintorin
-    let end_stop = "000000009300025"; //zochova
+    let cintorin = "000000035700001";
+    let hlavna = "000000009300025"; 
     let zochova = "000000050000001";
     
     let start = Instant::now();
 
-    let route = transit_index.find_route(start_stop, zochova);
+    let route = transit_index.find_route(cintorin, hlavna);
   
     match route {
         Some(path) => {
@@ -30,15 +30,15 @@ fn main() {
                 println!(
                     "Trip ID: {}, Start Stop: {}, End Stop: {}, Departure: {:?}, Arrival: {:?}, Duration: {:?} seconds",
                     segment.trip_id,
-                    segment.start_stop,
-                    segment.end_stop,
+                    transit_index.get_stop_name_from_id(segment.start_stop.as_str()).unwrap(),
+                    transit_index.get_stop_name_from_id(segment.end_stop.as_str()).unwrap(),
                     segment.departure_time,
                     segment.arrival_time,
                     segment.duration.as_secs()
                 );
             }
         },
-        None => println!("No route available from {} to {}.", start_stop, end_stop),
+        None => println!("No route available")
     }
 
     let elapsed = start.elapsed();
