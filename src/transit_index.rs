@@ -279,61 +279,94 @@ impl<'a> TransitIndex<'a> {
             .map(|sp| sp.stop_name.as_str())
     }
 
-    pub fn find_route(&self, start_stop: &str, end_stop: &str, start_time: DateTime<Local>) -> Option<Vec<RouteSegment>> {
+    pub fn find_route(
+        &self,
+        start_stop: &'a str,
+        end_stop: &'a str,
+        start_time: DateTime<Local>,
+    ) -> Option<Vec<RouteSegment>> {
+        // Initialize data structures
         let mut heap: BinaryHeap<State> = BinaryHeap::new();
         let mut distances: HashMap<&str, u32> = HashMap::new();
         let mut predecessors: HashMap<&str, RouteSegment> = HashMap::new();
-    
         let start_system_time: SystemTime = SystemTime::from(start_time);
     
+        println!("Starting search from: {} to {}, at {:?}", start_stop, end_stop, start_system_time);
+    
+        // Setup initial state
         distances.insert(start_stop, 0);
         heap.push(State { cost: 0, position: start_stop, arrival_time: start_system_time });
+        println!("Initial state set at: {:?}", start_system_time);
     
-        while let Some(State { cost, position, arrival_time }) = heap.pop() {
-            if position == end_stop {
-                let mut path = Vec::new();
-                let mut step = position;
-    
-                // Reverse trace the path from the destination to the start
-                while let Some(segment) = predecessors.get(step) {
-                    path.push(segment.clone());  // Clone the RouteSegment here
-                    step = &segment.start_stop;  // Continue tracing back
-                }
-    
-                path.reverse();
-                return Some(path);
+        // Process the heap
+        while let Some(current) = heap.pop() {
+            println!("Processing stop: {} with cost {} and arrival at {:?}", current.position, current.cost, current.arrival_time);
+            if current.position == end_stop {
+                println!("Destination reached.");
+                return Some(construct_path(predecessors, current.position));
             }
     
-            if let Some(neighbours) = self.stops_graph.get(position) {
-                for (&neighbour, trips) in neighbours {
-                    for trip in trips {
-                        let trip_start_time: SystemTime = SystemTime::UNIX_EPOCH + Duration::from_secs(trip.stop_times.first().unwrap().departure_time.unwrap() as u64);
-                        if trip_start_time < arrival_time {
-                            continue;  // Skip if the trip starts before the current arrival time
-                        }
-    
-                        let travel_time = trip.get_duration();
-                        let new_cost = cost + travel_time;
-                        let new_arrival_time = trip_start_time + Duration::from_secs(travel_time as u64);
-    
-                        if new_cost < *distances.get(neighbour).unwrap_or(&u32::MAX) {
-                            heap.push(State { cost: new_cost, position: neighbour, arrival_time: new_arrival_time });
-                            distances.insert(neighbour, new_cost);
-    
-                            predecessors.insert(neighbour, RouteSegment {
-                                trip_id: trip.trip.id().to_string(),
-                                start_stop: position.to_string(),
-                                end_stop: neighbour.to_string(),
-                                departure_time: trip_start_time,
-                                arrival_time: new_arrival_time,
-                                duration: Duration::from_secs(travel_time as u64),
-                            });
-                        }
-                    }
+            if let Some(neighbors) = self.stops_graph.get(current.position) {
+                for (&neighbor, trips) in neighbors {
+                    process_neighbor_trips(&mut heap, &mut distances, &mut predecessors, trips, &current, neighbor);
                 }
             }
         }
     
+        println!("No route found.");
         None
+    }
+}
+
+fn construct_path(predecessors: HashMap<&str, RouteSegment>, position: &str) -> Vec<RouteSegment> {
+    let mut path = Vec::new();
+    let mut step = position;
+
+    while let Some(segment) = predecessors.get(step) {
+        path.push(segment.clone());
+        step = &segment.start_stop;
+    }
+
+    path.reverse();
+    path
+}
+
+fn process_neighbor_trips<'a>(
+    heap: &mut BinaryHeap<State<'a>>,
+    distances: &mut HashMap<&'a str, u32>,
+    predecessors: &mut HashMap<&'a str, RouteSegment>,
+    trips: &[Arc<DirectTrip<'a>>],
+    current: &State<'a>,
+    neighbor: &'a str
+) {
+    for trip in trips {
+        let trip_start_time = SystemTime::UNIX_EPOCH + Duration::from_secs(trip.stop_times.first().unwrap().departure_time.unwrap() as u64);
+        println!("Evaluating trip {} from {} to {} scheduled to start at {:?}", trip.trip.id, current.position, neighbor, trip_start_time);
+        
+        // Log comparison of trip start time to current arrival time
+        if trip_start_time >= current.arrival_time {
+            let travel_time = trip.get_duration();
+            let new_cost = current.cost + travel_time;
+            let new_arrival_time = trip_start_time + Duration::from_secs(travel_time as u64);
+            println!("Valid trip found. Trip starts at {:?}, current arrival time: {:?}. New arrival time if taken: {:?}", trip_start_time, current.arrival_time, new_arrival_time);
+
+            if new_cost < *distances.get(neighbor).unwrap_or(&u32::MAX) {
+                println!("Updating route to {} with better cost via trip {}. New cost: {}, New arrival time: {:?}", neighbor, trip.trip.id, new_cost, new_arrival_time);
+                heap.push(State { cost: new_cost, position: neighbor, arrival_time: new_arrival_time });
+                distances.insert(neighbor, new_cost);
+                predecessors.insert(neighbor, RouteSegment {
+                    trip_id: trip.trip.id().to_string(),
+                    start_stop: current.position.to_string(),
+                    end_stop: neighbor.to_string(),
+                    departure_time: trip_start_time,
+                    arrival_time: new_arrival_time,
+                    duration: Duration::from_secs(travel_time as u64),
+                });
+            } else {
+                println!("More costly path found to {} via trip {}, cost: {}, hence skipped", neighbor, trip.trip.id, new_cost);
+            }
+        } else {
+            println!("Skipping trip {} as it starts too early. Trip start time: {:?}, Current arrival time: {:?}", trip.trip.id, trip_start_time, current.arrival_time);
+        }
     }
 }
