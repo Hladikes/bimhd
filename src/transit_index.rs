@@ -77,7 +77,7 @@ pub struct RouteSegment {
 
 pub struct TransitIndex<'a> {
     gtfs: &'a Gtfs,
-    pub platforms: HashMap<String, Arc<StopPlatforms>>,
+    pub platforms: HashMap<&'a str, Arc<StopPlatforms>>,
     pub direct_trips: HashMap<(&'a str, &'a str), Vec<Arc<DirectTrip<'a>>>>,
     pub distances: HashMap<(&'a str, &'a str), f64>,
     pub stops_graph: HashMap<&'a str, HashMap<&'a str, Vec<Arc<DirectTrip<'a>>>>>,
@@ -106,7 +106,7 @@ impl<'a> TransitIndex<'a> {
         transit_index
     }
 
-    fn build_platforms(gtfs: &'a Gtfs) -> HashMap<String, Arc<StopPlatforms>> {
+    fn build_platforms(gtfs: &'a Gtfs) -> HashMap<&str, Arc<StopPlatforms>> {
         // Make an array of unique stop names. BTreeSet was used to
         // always have the same order of elements in set
         let stop_names = gtfs.stops
@@ -116,7 +116,7 @@ impl<'a> TransitIndex<'a> {
         
         // This map serves both as an index for stop_id -> stop (and its platforms),
         // and as a storage for all grouped stop platforms
-        let mut stop_platforms: HashMap<String, Arc<StopPlatforms>> = HashMap::new();
+        let mut stop_platforms: HashMap<&str, Arc<StopPlatforms>> = HashMap::new();
 
         stop_names.iter().for_each(|stop_name| {
             // Get all stop platforms for a given stop name
@@ -136,8 +136,10 @@ impl<'a> TransitIndex<'a> {
                 platforms,
             });
 
-            current_stop_platform.platforms.iter().for_each(|p| {
-                stop_platforms.insert(p.id.clone(), current_stop_platform.clone());
+            gtfs.stops.values().for_each(|s| {
+                if s.as_ref().name.as_ref().is_some_and(|n| n.as_str() == *stop_name) {
+                    stop_platforms.insert(s.id(), current_stop_platform.clone());
+                }
             });
         });
 
