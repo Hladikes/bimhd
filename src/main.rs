@@ -4,10 +4,14 @@ mod util;
 
 use std::{sync::Arc, time::{Instant, SystemTime}};
 use gtfs_structures::{Gtfs, Id};
-use util::format_time;
-use chrono::{DateTime, Local};
+//use util::format_time;
+use chrono::{DateTime, Local, Timelike};
 
 use crate::{transit_index::{TransitIndex, DirectTrip}, util::read_line};
+
+fn format_time(time: DateTime<Local>) -> String {
+    format!("{:02}:{:02}:{:02}", time.hour(), time.minute(), time.second())
+}
 
 fn main() {
     let current_time: DateTime<Local> = DateTime::<Local>::from(SystemTime::now()).with_timezone(&Local);
@@ -22,25 +26,28 @@ fn main() {
     
     let start = Instant::now();
 
-    let route = transit_index.find_route(cintorin, bajkalska);
+    let route = transit_index.find_route(cintorin, hlavna, None/*Some(43200)*/);
   
     match route {
         Some(path) => {
-            println!("Route found");
-            for segment in path {
+            path.iter().for_each(|trip| {
+                let departure_time = format!("{:02}:{:02}", trip.get_departure_time() / 3600, (trip.get_departure_time() / 60) % 60);
+                let arrival_time = format!("{:02}:{:02}", trip.get_arrival_time() / 3600, (trip.get_arrival_time() / 60) % 60);
+
                 println!(
-                    "Trip ID: {}, Start Stop: {}, End Stop: {}, Departure: {:?}, Arrival: {:?}, Duration: {:?} seconds",
-                    segment.trip_id,
-                    transit_index.get_stop_name_from_id(segment.start_stop.as_str()).unwrap(),
-                    transit_index.get_stop_name_from_id(segment.end_stop.as_str()).unwrap(),
-                    segment.departure_time,
-                    segment.arrival_time,
-                    segment.duration.as_secs()
-                );
-            }
+                    "Trip {}, duration {} s, route {} -> {:#?}, Depart at: {}, Arrive by: {}", 
+                    trip.trip.id(), 
+                    trip.get_duration(), 
+                    gtfs.get_route(&trip.trip.route_id).map_or("-".to_string(), |r| r.short_name.clone().unwrap_or("-".to_string())),
+                    trip.get_stop_names(),
+                    departure_time,
+                    arrival_time
+                )
+            });
         },
-        None => println!("No route available")
+        None => println!("No route found")
     }
+
 
     let elapsed = start.elapsed();
     println!("Search took {} ms\n", elapsed.as_millis());
