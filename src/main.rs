@@ -23,10 +23,11 @@ fn main() {
     let hlavna = "000000009300025"; 
     let zochova = "000000050000001";
     let bajkalska = "000000000800001";
+    let hrobonova = "000000010600001";
     
     let start = Instant::now();
 
-    let route = transit_index.find_route(cintorin, hlavna, None/*Some(43200)*/);
+    let route = transit_index.find_route(cintorin, hlavna,None);
   
     match route {
         Some(path) => {
