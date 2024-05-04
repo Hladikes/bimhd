@@ -1,5 +1,4 @@
-use core::fmt;
-use std::{cmp::{Ordering, Reverse}, collections::{BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque}, sync::Arc, time::{Instant, SystemTime}};
+use std::{cmp::Ordering, collections::{BTreeSet, HashMap, HashSet}, sync::Arc, time::{Instant, SystemTime}};
 use chrono::{DateTime, Local, Timelike};
 use geo::{HaversineDistance, Point};
 use gtfs_structures::{Gtfs, Id, Stop, StopTime, Trip};
@@ -53,32 +52,6 @@ impl<'a> DirectTrip<'a> {
         } else {
             self.get_arrival_time()
         }
-    }
-}
-
-
-#[derive(Clone, Eq, PartialEq)]
-struct State<'a> {
-    cost: u32,
-    position: &'a str,
-    arrival_time: u32,
-}
-
-impl<'a> Ord for State<'a> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        other.cost.cmp(&self.cost).then_with(|| self.arrival_time.cmp(&other.arrival_time))
-    }
-}
-
-impl<'a> PartialOrd for State<'a> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl fmt::Display for State<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "State {{ cost: {}, position: {}, arrival_time: {} }}", self.cost, self.position, format_u32_time(self.arrival_time))
     }
 }
 
@@ -298,7 +271,7 @@ impl<'a> TransitIndex<'a> {
             (current_time.hour() as u32) * 3600 + (current_time.minute() as u32) * 60 + (current_time.second() as u32)
         });
     
-        println!("Start search after time: {}", format_u32_time(start_time));
+        println!("Looking after time: {}", format_u32_time(start_time));
     
         let mut best_arrival_time = u32::MAX;
         let mut best_route: Option<Vec<Arc<DirectTrip>>> = None;
@@ -308,7 +281,6 @@ impl<'a> TransitIndex<'a> {
                 if let Some(direct_trips) = self.get_direct_trips(start_platform.id.as_str(), end_platform.id.as_str()) {
                     if let Some(best_trip) = direct_trips.iter().filter(|&trip| trip.get_departure_time() >= start_time)
                         .min_by_key(|&trip| trip.get_real_arrival_time()) {
-                        println!("Direct trip found from {:?} to {:?}: {}", start_platform.name, end_platform.name, best_trip.trip.id);
                         if best_trip.get_real_arrival_time() < best_arrival_time {
                             best_arrival_time = best_trip.get_real_arrival_time();
                             best_route = Some(vec![best_trip.clone()]);
@@ -327,7 +299,7 @@ impl<'a> TransitIndex<'a> {
                     }
                 }
 
-                for (transfer_stop, (trips_from_start, trips_to_end)) in possible_transfers {
+                for (_transfer_stop, (trips_from_start, trips_to_end)) in possible_transfers {
                     for trip_to_transfer in trips_from_start {
                         if trip_to_transfer.get_departure_time() >= start_time {
                             for trip_from_transfer in trips_to_end {
@@ -336,7 +308,6 @@ impl<'a> TransitIndex<'a> {
                                     if arrival_time < best_arrival_time {
                                         best_arrival_time = arrival_time;
                                         best_route = Some(vec![trip_to_transfer.clone(), trip_from_transfer.clone()]);
-                                        println!("Potential route found via {:?} with arrival time {}", self.get_stop_name_from_id(transfer_stop).unwrap(), format_u32_time(arrival_time));
                                     }
                                 }
                             }

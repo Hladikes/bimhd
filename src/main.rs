@@ -2,62 +2,48 @@
 mod transit_index;
 mod util;
 
-use std::{sync::Arc, time::{Instant, SystemTime}};
+use std::{sync::Arc, time::Instant};
 use gtfs_structures::{Gtfs, Id};
-//use util::format_time;
-use chrono::{DateTime, Local, Timelike};
 
-use crate::{transit_index::{TransitIndex, DirectTrip}, util::read_line};
+use crate::{transit_index::TransitIndex, util::{read_line, format_u32_time}};
 
 fn main() {
     let gtfs = Gtfs::new("gtfs.zip").unwrap();
     let transit_index = TransitIndex::new(&gtfs);
 
-    print!("from: ");
-    let from_stop_name = read_line();
+    loop {
+        print!("from: ");
+        let from_stop_name = read_line();
 
-    print!("  to: ");
-    let to_stop_name = read_line();
+        print!("  to: ");
+        let to_stop_name = read_line();
 
-    let from: Arc<transit_index::StopPlatforms> = transit_index.search_by_name(from_stop_name.as_str())[0].clone();
-    let to: Arc<transit_index::StopPlatforms> = transit_index.search_by_name(to_stop_name.as_str())[0].clone();
+        let from: Arc<transit_index::StopPlatforms> = transit_index.search_by_name(from_stop_name.as_str())[0].clone();
+        let to: Arc<transit_index::StopPlatforms> = transit_index.search_by_name(to_stop_name.as_str())[0].clone();
+        
+        let start = Instant::now();
 
-    // let cintorin = "000000035700001";
-    // let hlavna = "000000009300025"; 
-    // let zochova = "000000050000001";
-    // let bajkalska = "000000000800001";
-    // let hrobonova = "000000010600002";
-    // let chatam = "000000043900005";
-    // let polia = "000000049400002";
-    // let cunovo = "000000004700002";
+        let route = transit_index.find_route(&from, &to ,None);
     
-    let start = Instant::now();
-
-    let route = transit_index.find_route(&from, &to ,None);
-  
-    match route {
-        Some(path) => {
-            path.iter().for_each(|trip| {
-                let departure_time = format!("{:02}:{:02}", trip.get_departure_time() / 3600, (trip.get_departure_time() / 60) % 60);
-                let arrival_time = format!("{:02}:{:02}", trip.get_arrival_time() / 3600, (trip.get_arrival_time() / 60) % 60);
-
-                println!(
-                    "Trip {}, duration {} s, route {} -> {:#?}, Depart at: {}, Arrive by: {}", 
-                    trip.trip.id(), 
-                    trip.get_duration(), 
-                    gtfs.get_route(&trip.trip.route_id).map_or("-".to_string(), |r| r.short_name.clone().unwrap_or("-".to_string())),
-                    trip.get_stop_names(),
-                    departure_time,
-                    arrival_time
-                )
-            });
-        },
-        None => println!("No route found")
+        match route {
+            Some(path) => {
+                path.iter().for_each(|trip| {
+                    println!(
+                        "Trip {}, duration {} s, route {} -> {:#?}, Depart at: {}, Arrive by: {}", 
+                        trip.trip.id(), 
+                        trip.get_duration(), 
+                        gtfs.get_route(&trip.trip.route_id).map_or("-".to_string(), |r| r.short_name.clone().unwrap_or("-".to_string())),
+                        trip.get_stop_names(),
+                        format_u32_time(trip.get_departure_time()),
+                        format_u32_time(trip.get_arrival_time())
+                    )
+                });
+            },
+            None => println!("No route found")
+        }
+        let elapsed = start.elapsed();
+        println!("Search took {} ms\n", elapsed.as_millis());
     }
-
-
-    let elapsed = start.elapsed();
-    println!("Search took {} ms\n", elapsed.as_millis());
 
     // loop {
     //     print!("Cintorin Slavicie (long: 17.068, lat: 48.158)\n");
