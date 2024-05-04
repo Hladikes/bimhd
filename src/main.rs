@@ -9,25 +9,31 @@ use chrono::{DateTime, Local, Timelike};
 
 use crate::{transit_index::{TransitIndex, DirectTrip}, util::read_line};
 
-fn format_time(time: DateTime<Local>) -> String {
-    format!("{:02}:{:02}:{:02}", time.hour(), time.minute(), time.second())
-}
-
 fn main() {
-    let current_time: DateTime<Local> = DateTime::<Local>::from(SystemTime::now()).with_timezone(&Local);
-    print!("Teraz je: {}\n", format_time(current_time));
     let gtfs = Gtfs::new("gtfs.zip").unwrap();
     let transit_index = TransitIndex::new(&gtfs);
 
-    let cintorin = "000000035700001";
-    let hlavna = "000000009300025"; 
-    let zochova = "000000050000001";
-    let bajkalska = "000000000800001";
-    let hrobonova = "000000010600001";
+    print!("from: ");
+    let from_stop_name = read_line();
+
+    print!("  to: ");
+    let to_stop_name = read_line();
+
+    let from: Arc<transit_index::StopPlatforms> = transit_index.search_by_name(from_stop_name.as_str())[0].clone();
+    let to: Arc<transit_index::StopPlatforms> = transit_index.search_by_name(to_stop_name.as_str())[0].clone();
+
+    // let cintorin = "000000035700001";
+    // let hlavna = "000000009300025"; 
+    // let zochova = "000000050000001";
+    // let bajkalska = "000000000800001";
+    // let hrobonova = "000000010600002";
+    // let chatam = "000000043900005";
+    // let polia = "000000049400002";
+    // let cunovo = "000000004700002";
     
     let start = Instant::now();
 
-    let route = transit_index.find_route(cintorin, hlavna,None);
+    let route = transit_index.find_route(&from, &to ,None);
   
     match route {
         Some(path) => {
@@ -82,8 +88,8 @@ fn main() {
 
     //     let start = Instant::now();
         
-    //     let from = transit_index.search_by_name(from_stop_name.as_str())[0].clone();
-    //     let to = transit_index.search_by_name(to_stop_name.as_str())[0].clone();
+        // let from = transit_index.search_by_name(from_stop_name.as_str())[0].clone();
+        // let to = transit_index.search_by_name(to_stop_name.as_str())[0].clone();
 
     //     let mut all_trips: Vec<Arc<DirectTrip>> = vec![];
 
