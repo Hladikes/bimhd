@@ -284,6 +284,7 @@ impl<'a> TransitIndex<'a> {
                         if best_trip.get_real_arrival_time() < best_arrival_time {
                             best_arrival_time = best_trip.get_real_arrival_time();
                             best_route = Some(vec![best_trip.clone()]);
+                            println!("Found better direct trip: {} -> {} in {} s", self.get_stop_name_from_id(start_platform.id.as_str()).unwrap(), self.get_stop_name_from_id(end_platform.id.as_str()).unwrap(), format_u32_time(best_arrival_time));
                         }
                     }
                 }
@@ -306,6 +307,7 @@ impl<'a> TransitIndex<'a> {
                                 if trip_from_transfer.get_departure_time() >= trip_to_transfer.get_real_arrival_time() {
                                     let arrival_time = trip_from_transfer.get_real_arrival_time();
                                     if arrival_time < best_arrival_time {
+                                        println!("Found better route: {} -> {} -> {} in {} s", self.get_stop_name_from_id(start_platform.id.as_str()).unwrap(), self.get_stop_name_from_id(trip_to_transfer.trip.stop_times.last().unwrap().stop.id()).unwrap(), self.get_stop_name_from_id(end_platform.id.as_str()).unwrap(), format_u32_time(arrival_time));
                                         best_arrival_time = arrival_time;
                                         best_route = Some(vec![trip_to_transfer.clone(), trip_from_transfer.clone()]);
                                     }
