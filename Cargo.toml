@@ -10,6 +10,9 @@ chrono = "0.4.38"
 geo = "0.28.0"
 gtfs-structures = "0.41.2"
 trigram = "0.4.4"
+actix-web = "4"
+serde = { version = "1.0.200", features = ["derive"] }
+actix-cors = "0.7.0"
 
 [[bin]]
 name = "bimhd"
