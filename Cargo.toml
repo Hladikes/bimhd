@@ -13,6 +13,7 @@ trigram = "0.4.4"
 actix-web = "4"
 serde = { version = "1.0.200", features = ["derive"] }
 actix-cors = "0.7.0"
+tokio = { version="1.37.0" , features= ["full"]}
 
 [[bin]]
 name = "bimhd"

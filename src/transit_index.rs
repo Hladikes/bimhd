@@ -4,8 +4,6 @@ use geo::{HaversineDistance, Point};
 use gtfs_structures::{Gtfs, Id, Stop, StopTime, Trip};
 use trigram::similarity;
 
-use crate::util::format_u32_time;
-
 pub struct StopPlatforms {
     pub stop_name: String,
     pub platforms: Vec<Arc<Stop>>,
@@ -270,9 +268,7 @@ impl<'a> TransitIndex<'a> {
             let current_time = DateTime::<Local>::from(SystemTime::now()).with_timezone(&Local);
             (current_time.hour() as u32) * 3600 + (current_time.minute() as u32) * 60 + (current_time.second() as u32)
         });
-    
-        println!("Looking after time: {}", format_u32_time(start_time));
-    
+        
         let mut best_arrival_time = u32::MAX;
         let mut best_route: Option<Vec<Arc<DirectTrip>>> = None;
     
@@ -284,7 +280,6 @@ impl<'a> TransitIndex<'a> {
                         if best_trip.get_real_arrival_time() < best_arrival_time {
                             best_arrival_time = best_trip.get_real_arrival_time();
                             best_route = Some(vec![best_trip.clone()]);
-                            println!("Found better direct trip: {} -> {} in {} s", self.get_stop_name_from_id(start_platform.id.as_str()).unwrap(), self.get_stop_name_from_id(end_platform.id.as_str()).unwrap(), format_u32_time(best_arrival_time));
                         }
                     }
                 }
@@ -307,7 +302,6 @@ impl<'a> TransitIndex<'a> {
                                 if trip_from_transfer.get_departure_time() >= trip_to_transfer.get_real_arrival_time() {
                                     let arrival_time = trip_from_transfer.get_real_arrival_time();
                                     if arrival_time < best_arrival_time {
-                                        println!("Found better route: {} -> {} -> {} in {} s", self.get_stop_name_from_id(start_platform.id.as_str()).unwrap(), self.get_stop_name_from_id(trip_to_transfer.trip.stop_times.last().unwrap().stop.id()).unwrap(), self.get_stop_name_from_id(end_platform.id.as_str()).unwrap(), format_u32_time(arrival_time));
                                         best_arrival_time = arrival_time;
                                         best_route = Some(vec![trip_to_transfer.clone(), trip_from_transfer.clone()]);
                                     }
