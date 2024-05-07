@@ -104,6 +104,7 @@ async fn main() -> std::io::Result<()> {
             )
             .app_data(app_data.clone())
             .service(get_stops)
+            .service(serve_openapi_yaml)
     })
     .bind(("0.0.0.0", 8000))?
     .run()
