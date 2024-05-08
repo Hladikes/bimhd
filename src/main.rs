@@ -111,7 +111,7 @@
 mod transit_index;
 mod util;
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use gtfs_structures::Gtfs;
 use serde::Serialize;
@@ -127,11 +127,17 @@ fn main() {
     let server = Server::http("0.0.0.0:8000").expect("Failed to start the server");
 
     for request in server.incoming_requests() {
-        println!("Received request: {:?}", request);
+        let full_url = format!("http://localhost:8000{}", request.url());
+        let parsed_url = url::Url::parse(&full_url).unwrap();
+        let query_params: HashMap<String, String> = parsed_url
+            .query_pairs()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
 
-        
-        let response = match request.url() {
+        let response = match parsed_url.path() {
             "/api/v1/stops" => {
+                println!("{:#?}", query_params);
+
                 let (stops, time_taken) = util::measure(|| {
                     let stops: Vec<Arc<gtfs_structures::Stop>> = gtfs.stops.values().cloned().collect();
                     stops
