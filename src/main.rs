@@ -6,7 +6,7 @@ use gtfs_structures::{Gtfs, Id};
 use serde_json::to_string;
 use tiny_http::{Header, Response, Server};
 use transit_index::TransitIndex;
-use util::format_u32_time;
+use util::{format_u32_time, format_seconds_to_minutes};
 
 fn main() {
     let gtfs = Gtfs::from_path("./gtfs.zip").expect("Could not open gtfs.zip file");
@@ -100,8 +100,10 @@ fn main() {
                         "arrival_at": last_trip_arrival,
                         "trips": trips.iter().map(|trip| {
                             serde_json::json!({
+                                "departure_at": format_u32_time(trip.get_departure_time()),
+                                "arrival_at": format_u32_time(trip.get_arrival_time()),
                                 "trip_id": trip.trip.id(),
-                                "duration": trip.get_duration(),
+                                "duration": format_seconds_to_minutes(trip.get_duration()),
                                 "route": gtfs.get_route(&trip.trip.route_id).map_or("-".to_string(), |r| r.short_name.clone().unwrap_or("-".to_string())),
                                 "stop_names": trip.get_stop_names(),
                             })

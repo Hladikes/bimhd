@@ -3,19 +3,14 @@ info:
   title: Bimhd API
   description: |-
     Bimhd API is a RESTful API that allows you to interact with the public transport data in Bratislava.
-
-  authors: Martin Hric, Adam Hladík
+    Authors: Martin Hric, Adam Hladík
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   version: 1.0.0
 servers:
-  - url: https://e-commerce-ppr.kolos.sk
+  - url: https://rust.hldks.net
     description: testing server
-  - url: https://e-commerce.kolos.sk
-    description: production server
-  - url: http://localhost:3000
-    description: Local development server
 paths: { }
 components:
   schemas:
