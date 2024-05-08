@@ -1,9 +1,7 @@
 use std::time::Instant;
 
 pub fn format_seconds_to_minutes(seconds: u32) -> String {
-    let minutes = seconds / 60;
-    let seconds = seconds % 60;
-    format!("{:02}:{:02}m", minutes, seconds)
+    format!("{:02}m", seconds / 60)
 }
 
 pub fn format_u32_time(time: u32) -> String {
