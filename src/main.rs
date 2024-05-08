@@ -1,7 +1,7 @@
 mod transit_index;
 mod util;
 
-use std::{collections::{BTreeSet, HashMap, }, sync::Arc};
+use std::collections::{BTreeSet, HashMap};
 use gtfs_structures::{Gtfs, Id};
 use serde_json::to_string;
 use tiny_http::{Header, Response, Server};
@@ -24,27 +24,57 @@ fn main() {
 
         let response = match parsed_url.path() {
             "/api/v1/stops" => {
-                let (stops, time_taken) = util::measure(|| {
+                let (stops_data, time_taken) = util::measure(|| {
                     if let Some(stop_name) = query_params.get("stop_name") {
                         let results = transit_index.search_by_name(stop_name);
-                        results[0].platforms.clone()
+                        serde_json::json!(vec![if let Some(first_stop_platforms) = results.first() {
+                            serde_json::json!({
+                                "stop_name": first_stop_platforms.stop_name,
+                                "platforms": first_stop_platforms.platforms.iter().map(|platform| {
+                                    serde_json::json!({
+                                        "id": platform.id,
+                                        "longitude": platform.longitude.unwrap_or(0.0),
+                                        "latitude": platform.latitude.unwrap_or(0.0),
+                                        "platform_code": platform.platform_code.as_ref().unwrap_or(&"".to_string()),
+                                        "zone": platform.zone_id.as_ref().unwrap_or(&"".to_string())
+                                    })
+                                }).collect::<Vec<_>>()
+                            })
+                        } else {
+                            serde_json::json!({
+                                "stop_name": "",
+                                "platforms": []
+                            })
+                        }])
                     } else {
-                        let stops: Vec<Arc<gtfs_structures::Stop>> = gtfs.stops.values().cloned().collect();
-                        stops
+                        serde_json::json!(transit_index.platforms.iter().map(|(stop_name, stop_platforms)| {
+                            serde_json::json!({
+                                "stop_name": transit_index.get_stop_name_from_id(stop_name),
+                                "platforms": stop_platforms.platforms.iter().map(|platform| {
+                                    serde_json::json!({
+                                        "id": platform.id,
+                                        "longitude": platform.longitude.unwrap_or(0.0),
+                                        "latitude": platform.latitude.unwrap_or(0.0),
+                                        "platform_code": platform.platform_code.as_ref().unwrap_or(&"".to_string()),
+                                        "zone": platform.zone_id.as_ref().unwrap_or(&"".to_string())
+                                    })
+                                }).collect::<Vec<_>>()
+                            })
+                        }).collect::<Vec<_>>())
                     }
                 });
-
+            
                 let response = serde_json::json!({
-                    "time_taken": time_taken,
-                    "stops": stops,
+                    "time_taken": format!("{}", time_taken),
+                    "stops": stops_data
                 });
-
+            
                 Response::from_string(to_string(&response).unwrap())
                     .with_status_code(200)
                     .with_header(Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap())
                     .with_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap())
                     .with_header(Header::from_bytes(&b"Access-Control-Allow-Methods"[..], &b"GET, POST, PUT, DELETE, OPTIONS"[..]).unwrap())
-            }, 
+            },
             "/api/v1/stops/routes/departures" => {
                 if let Some(stop_name) = query_params.get("stop_name") {
                     
@@ -109,8 +139,23 @@ fn main() {
 
                     let response = serde_json::json!({
                         "time_taken": time_taken,
-                        "nearest_stops": nearest_stops,
+                        "nearest_stops": nearest_stops.iter().map(|stop_platform| {
+                            serde_json::json!({
+                                "stop_name": stop_platform.stop_name,
+                                "distance": format!("{:.2} m", stop_platform.distance_to_location(geo::Point::new(lon, lat))),
+                                "platforms": stop_platform.platforms.iter().map(|stop| {
+                                    serde_json::json!({
+                                        "id": stop.id,
+                                        "platform_code": stop.platform_code,
+                                        "zone": stop.zone_id,
+                                        "latitude": stop.latitude,
+                                        "longitude": stop.longitude,
+                                    })
+                                }).collect::<Vec<_>>()
+                            })
+                        }).collect::<Vec<_>>(),
                     });
+            
 
                     Response::from_string(to_string(&response).unwrap())
                         .with_status_code(200)

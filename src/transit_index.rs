@@ -240,15 +240,31 @@ impl<'a> TransitIndex<'a> {
 
     pub fn find_nearest_stops(&self, longitude: f64, latitude: f64, count: usize) -> Vec<Arc<StopPlatforms>> {
         let location = Point::new(longitude, latitude);
-
+        let mut unique_stops = HashSet::new();
+        let mut results = Vec::new();
+    
         let mut distances: Vec<(f64, Arc<StopPlatforms>)> = self.platforms
             .values()
-            .map(|sp| (sp.distance_to_location(location), sp.clone()))
+            .map(|sp| {
+                let distance = sp.distance_to_location(location);
+                (distance, Arc::clone(sp))
+            })
             .collect();
-
+    
         distances.sort_by(|a, b| a.0.total_cmp(&b.0));
-        distances.iter().take(count).map(|(_, sp)| sp.clone()).collect()
+    
+        for (_, platform) in distances {
+            if unique_stops.insert(platform.stop_name.clone()) {
+                results.push(platform);
+                if results.len() == count {
+                    break;
+                }
+            }
+        }
+    
+        results
     }
+    
 
     pub fn get_direct_trips(&self, from_stop_id: &str, to_stop_id: &str) -> Option<Vec<Arc<DirectTrip>>> {
         self.direct_trips.get(&(from_stop_id, to_stop_id)).cloned()

@@ -2,8 +2,8 @@ openapi: 3.1.0
 info:
   title: Bimhd API
   description: |-
-    Bimhd API is a RESTful API that allows you to interact with the public transport data in Bratislava.
-
+    Bimhd API is a RESTful API that allows you to interact with the public transport data in Bratislava, sourced from always updated GTFS feeds.
+    
     Authors: Martin Hric, Adam Hladík
   license:
     name: Apache 2.0
@@ -11,9 +11,10 @@ info:
   version: 1.0.0
 servers:
   - url: https://rust.hldks.net/api/v1
-    description: testing server
+    description: Test server
   - url: http://localhost:8000/api/v1
-    description: local server
+    description: Local development server
+
 paths:
   /stops:
     get:
@@ -25,7 +26,7 @@ paths:
           schema:
             type: string
           required: false
-          description: Name of the stop to filter the results.
+          description: Optional name of the stop to filter the results by.
       responses:
         200:
           description: An array of stops and the time taken to fetch them.
@@ -40,11 +41,17 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Stop'
+        400:
+          description: Bad request if the stop name parameter is incorrect.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /stops/nearest:
     get:
       summary: Retrieves nearest stops based on geographic coordinates
-      description: Returns the nearest stops from the given longitude and latitude.
+      description: Returns the nearest stops from the given longitude and latitude, up to a specified maximum count.
       parameters:
         - in: query
           name: lon
@@ -65,18 +72,28 @@ paths:
           schema:
             type: integer
           required: false
-          description: Maximum number of stops to return.
+          description: Maximum number of stops to return, defaults to 5 if not specified.
       responses:
         200:
-          description: An array of the nearest stops.
+          description: An array of the nearest stops with distance.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Stop'
+                type: object
+                properties:
+                  nearest_stops:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StopDetailed'
+                  time_taken:
+                    type: string
         400:
-          description: Bad request if the longitude or latitude parameters are missing or invalid.       
+          description: Bad request if the longitude or latitude parameters are missing or invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /stops/routes/departures:
     get:
       summary: Retrieves departure routes for a specified stop
@@ -106,10 +123,15 @@ paths:
                         type: string
         400:
           description: Invalid request due to missing or incorrect stop name.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
   /trip:
     get:
       summary: Calculates a trip from one stop to another at a specified time
-      description: Returns route details between two stops including trip times and stops along the route.
+      description: Returns route details including departure and arrival times, trip duration, and the names of the stops along the route.
       parameters:
         - in: query
           name: from
@@ -132,7 +154,7 @@ paths:
           description: Desired departure time in HH:MM format.
       responses:
         200:
-          description: Route details including departure and arrival times.
+          description: Detailed route information.
           content:
             application/json:
               schema:
@@ -150,6 +172,10 @@ paths:
                       $ref: '#/components/schemas/TripDetail'
         404:
           description: No route found between the given stops.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
 components:
   schemas:
@@ -162,12 +188,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Platform'
+
     Platform:
       type: object
       properties:
         id:
-          type: string
-        name:
           type: string
         longitude:
           type: number
@@ -175,6 +200,11 @@ components:
         latitude:
           type: number
           format: double
+        platform_code:
+          type: string
+        zone:
+          type: string
+
     TripDetail:
       type: object
       properties:
@@ -192,3 +222,23 @@ components:
           type: array
           items:
             type: string
+
+    StopDetailed:
+      type: object
+      properties:
+        stop_name:
+          type: string
+        distance:
+          type: string
+        platforms:
+          type: array
+          items:
+            $ref: '#/components/schemas/Platform'
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
