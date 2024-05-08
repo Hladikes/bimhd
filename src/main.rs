@@ -113,9 +113,9 @@ mod util;
 
 use std::{collections::HashMap, sync::Arc};
 
-use gtfs_structures::Gtfs;
+use gtfs_structures::{Gtfs, StopTime};
 use serde::Serialize;
-use serde_json::to_string;
+use serde_json::{to_string, Value};
 use tiny_http::{Header, Response, Server, StatusCode};
 use transit_index::TransitIndex;
 
@@ -164,15 +164,19 @@ fn main() {
             "/api/v1/trip" => {
                 let (route, time_taken) = util::measure(|| {
                     let from_stop = transit_index.search_by_name("Cintorin Slavicie").get(0).cloned().expect("Stop not found");
-                    let to_stop = transit_index.search_by_name("Zochova").get(0).cloned().expect("Stop not found");
+                    let to_stop = transit_index.search_by_name("Hrobonova").get(0).cloned().expect("Stop not found");
                 
                     let route = transit_index.find_route(from_stop, to_stop, None);
                     route
                 });
 
+                let stop_times: Option<Vec<&[StopTime]>> = route.map(|trips| {
+                    trips.iter().map(|dt| dt.stop_times).collect()
+                });
+
                 let response = serde_json::json!({
                     "time_taken": time_taken,
-                    "route": route,
+                    "stop_times": stop_times,
                 });
 
                 Response::from_string(to_string(&response).unwrap())
