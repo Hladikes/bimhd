@@ -2,9 +2,8 @@ use std::{cmp::Ordering, collections::{BTreeSet, HashMap, HashSet}, sync::Arc, t
 use chrono::{DateTime, Local, Timelike};
 use geo::{HaversineDistance, Point};
 use gtfs_structures::{Gtfs, Id, Stop, StopTime, Trip};
+use serde::Serialize;
 use trigram::similarity;
-
-use crate::util::format_u32_time;
 
 pub struct StopPlatforms {
     pub stop_name: String,
@@ -24,6 +23,7 @@ impl StopPlatforms {
     }
 }
 
+#[derive(Serialize)]
 pub struct DirectTrip<'a> {
     pub trip: &'a Trip,
     pub stop_times: &'a [StopTime],
@@ -249,8 +249,8 @@ impl<'a> TransitIndex<'a> {
         distances.iter().take(count).map(|(_, sp)| sp.clone()).collect()
     }
 
-    pub fn get_direct_trips(&self, from_stop_id: &'a str, to_stop_id: &'a str) -> Option<&Vec<Arc<DirectTrip>>> {
-        self.direct_trips.get(&(from_stop_id, to_stop_id))
+    pub fn get_direct_trips(&self, from_stop_id: &str, to_stop_id: &str) -> Option<Vec<Arc<DirectTrip>>> {
+        self.direct_trips.get(&(from_stop_id, to_stop_id)).cloned()
     }
 
     pub fn get_stop_name_from_id(&self, id: &str) -> Option<&str> {
@@ -261,23 +261,21 @@ impl<'a> TransitIndex<'a> {
     }
 
     pub fn find_route(
-        &'a self,
-        start_platforms: &'a Arc<StopPlatforms>,
-        end_platforms: &'a Arc<StopPlatforms>,
+        &self,
+        start_platforms: Arc<StopPlatforms>,
+        end_platforms: Arc<StopPlatforms>,
         start_time_opt: Option<u32>
     ) -> Option<Vec<Arc<DirectTrip>>> {
         let start_time = start_time_opt.unwrap_or_else(|| {
             let current_time = DateTime::<Local>::from(SystemTime::now()).with_timezone(&Local);
             (current_time.hour() as u32) * 3600 + (current_time.minute() as u32) * 60 + (current_time.second() as u32)
         });
-    
-        println!("Looking after time: {}", format_u32_time(start_time));
-    
+        
         let mut best_arrival_time = u32::MAX;
         let mut best_route: Option<Vec<Arc<DirectTrip>>> = None;
     
         for start_platform in start_platforms.platforms.iter() {
-            for end_platform in end_platforms.platforms.iter() {
+            for end_platform in end_platforms.platforms.iter(){
                 if let Some(direct_trips) = self.get_direct_trips(start_platform.id.as_str(), end_platform.id.as_str()) {
                     if let Some(best_trip) = direct_trips.iter().filter(|&trip| trip.get_departure_time() >= start_time)
                         .min_by_key(|&trip| trip.get_real_arrival_time()) {

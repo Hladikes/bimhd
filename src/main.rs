@@ -119,6 +119,8 @@ use serde_json::to_string;
 use tiny_http::{Header, Response, Server, StatusCode};
 use transit_index::TransitIndex;
 
+use crate::transit_index::DirectTrip;
+
 fn main() {
     let gtfs = Gtfs::from_path("./gtfs.zip").unwrap();
     let transit_index = TransitIndex::new(&gtfs);
@@ -129,7 +131,7 @@ fn main() {
 
         
         let response = match request.url() {
-            "/stops" => {
+            "/api/v1/stops" => {
                 let (stops, time_taken) = util::measure(|| {
                     let stops: Vec<Arc<gtfs_structures::Stop>> = gtfs.stops.values().cloned().collect();
                     stops
@@ -150,6 +152,36 @@ fn main() {
                     .with_status_code(200)
                     .with_header(Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap())
             }, 
+            "/swagger" => {
+                let file = std::fs::read_to_string("./openapi.yaml").unwrap_or(String::from("File not found"));
+                Response::from_string(file)
+                    .with_status_code(200)
+                    .with_header(Header::from_bytes(&b"Content-Type"[..], &b"text/plain"[..]).unwrap())
+            },
+            "/api/v1/trip" => {
+                let (route, time_taken) = util::measure(|| {
+                    let from_stop = transit_index.search_by_name("Cintorin Slavicie").get(0).cloned().expect("Stop not found");
+                    let to_stop = transit_index.search_by_name("Zochova").get(0).cloned().expect("Stop not found");
+                
+                    let route = transit_index.find_route(from_stop, to_stop, None);
+                    route
+                });
+                
+                #[derive(Serialize)]
+                struct TripResponse<'a> {
+                    time_taken: u128,
+                    route: Option<Vec<Arc<DirectTrip<'a>>>>,
+                }
+
+                let response = TripResponse {
+                    time_taken,
+                    route,
+                };
+
+                Response::from_string(to_string(&response).unwrap())
+                    .with_status_code(200)
+                    .with_header(Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap())
+            },
             _ => Response::from_string("Not Found")
         };
 
