@@ -137,8 +137,13 @@ fn main() {
         let response = match parsed_url.path() {
             "/api/v1/stops" => {
                 let (stops, time_taken) = util::measure(|| {
-                    let stops: Vec<Arc<gtfs_structures::Stop>> = gtfs.stops.values().cloned().collect();
-                    stops
+                    if let Some(stop_name) = query_params.get("stop_name") {
+                        let results = transit_index.search_by_name(stop_name);
+                        results[0].platforms.clone()
+                    } else {
+                        let stops: Vec<Arc<gtfs_structures::Stop>> = gtfs.stops.values().cloned().collect();
+                        stops
+                    }
                 });
 
                 let response = serde_json::json!({
