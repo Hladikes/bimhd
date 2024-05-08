@@ -162,6 +162,27 @@ fn main() {
                 Response::from_string(file)
                     .with_status_code(200)
                     .with_header(Header::from_bytes(&b"Content-Type"[..], &b"text/plain"[..]).unwrap())
+                    .with_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap())
+                    .with_header(Header::from_bytes(&b"Access-Control-Allow-Methods"[..], &b"GET, POST, PUT, DELETE, OPTIONS"[..]).unwrap())
+            },
+            "/api/v1/stops/nearest" => {
+                let parsed_lon = query_params.get("lon").and_then(|s| s.parse::<f64>().ok());
+                let parsed_lat = query_params.get("lat").and_then(|s| s.parse::<f64>().ok());
+                
+                if let (Some(lon), Some(lat)) = (parsed_lon, parsed_lat) {
+                    let max_count = query_params.get("max").and_then(|s| s.parse::<usize>().ok()).unwrap_or(5);
+                    let nearest_stops = transit_index.find_nearest_stops(lon, lat, max_count);
+
+                    Response::from_string(to_string(&nearest_stops).unwrap())
+                        .with_status_code(200)
+                        .with_header(Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap())
+                } else {
+                    let response = serde_json::json!({
+                        "msg": "Invalid lon and lat query parameters",
+                    });
+
+                    Response::from_string(to_string(&response).unwrap()).with_status_code(400)
+                }
             },
             "/api/v1/trip" => {
                 let (route, time_taken) = util::measure(|| {

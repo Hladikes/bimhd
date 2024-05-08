@@ -5,6 +5,7 @@ use gtfs_structures::{Gtfs, Id, Stop, StopTime, Trip};
 use serde::Serialize;
 use trigram::similarity;
 
+#[derive(Serialize)]
 pub struct StopPlatforms {
     pub stop_name: String,
     pub platforms: Vec<Arc<Stop>>,
