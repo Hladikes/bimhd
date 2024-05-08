@@ -150,8 +150,8 @@ fn main() {
                     .with_status_code(200)
                     .with_header(Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap())
             }, 
-            "/swagger" => {
-                let file = std::fs::read_to_string("./openapi.yaml").unwrap_or(String::from("File not found"));
+            "/api/v1/swagger" => {
+                let file = include_str!("../openapi.yaml");
                 Response::from_string(file)
                     .with_status_code(200)
                     .with_header(Header::from_bytes(&b"Content-Type"[..], &b"text/plain"[..]).unwrap())
