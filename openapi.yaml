@@ -3,523 +3,166 @@ info:
   title: Bimhd API
   description: |-
     Bimhd API is a RESTful API that allows you to interact with the public transport data in Bratislava.
+
     Authors: Martin Hric, Adam Hladík
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   version: 1.0.0
 servers:
-  - url: https://rust.hldks.net
+  - url: https://rust.hldks.net/api/v1
     description: testing server
-paths: { }
+  - url: http://localhost:8000/api/v1
+    description: local server
+paths:
+  /stops:
+    get:
+      summary: Retrieves transit stops
+      description: Fetches a list of all transit stops or searches by stop name if a query parameter is provided.
+      parameters:
+        - in: query
+          name: stop_name
+          schema:
+            type: string
+          required: false
+          description: Name of the stop to filter the results.
+      responses:
+        200:
+          description: An array of stops and the time taken to fetch them.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  time_taken:
+                    type: string
+                  stops:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Stop'
+
+  /stops/nearest:
+    get:
+      summary: Retrieves nearest stops based on geographic coordinates
+      description: Returns the nearest stops from the given longitude and latitude.
+      parameters:
+        - in: query
+          name: lon
+          schema:
+            type: number
+            format: double
+          required: true
+          description: Longitude of the location.
+        - in: query
+          name: lat
+          schema:
+            type: number
+            format: double
+          required: true
+          description: Latitude of the location.
+        - in: query
+          name: max
+          schema:
+            type: integer
+          required: false
+          description: Maximum number of stops to return.
+      responses:
+        200:
+          description: An array of the nearest stops.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Stop'
+        400:
+          description: Bad request if the longitude or latitude parameters are missing or invalid.
+
+  /trip:
+    get:
+      summary: Calculates a trip from one stop to another at a specified time
+      description: Returns route details between two stops including trip times and stops along the route.
+      parameters:
+        - in: query
+          name: from
+          schema:
+            type: string
+          required: true
+          description: The starting stop name.
+        - in: query
+          name: to
+          schema:
+            type: string
+          required: true
+          description: The destination stop name.
+        - in: query
+          name: time_at
+          schema:
+            type: string
+            pattern: '^[0-2]?[0-9]:[0-5][0-9]$'
+          required: false
+          description: Desired departure time in HH:MM format.
+      responses:
+        200:
+          description: Route details including departure and arrival times.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  time_taken:
+                    type: string
+                  departure_at:
+                    type: string
+                  arrival_at:
+                    type: string
+                  trips:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TripDetail'
+        404:
+          description: No route found between the given stops.
+
 components:
   schemas:
-    OauthTokenRequest:
+    Stop:
       type: object
       properties:
-        grant_type:
+        stop_name:
           type: string
-          description: grant type you want to request
-          enum: [ "client_credentials" ]
-        client_id:
-          type: string
-        client_secret:
-          type: string
-      required: [ "grant_type", "client_id", "client_secret" ]
-    OauthTokenResponse:
-      type: object
-      properties:
-        access_token:
-          type: string
-        token_type:
-          type: string
-          enum: [ "Bearer" ]
-        expires_in:
-          description: time in seconds when the token expires
-          type: integer
-    ManifestsCloseoutRequest:
-      type: object
-      properties:
-        shipments:
+        platforms:
           type: array
-          description: array of shipment numbers you want to finalize
           items:
-            type: string
-        receive_date:
-          type: string
-          description: date that we are supposed to receive the given shipments (SQL format)
-        sending_method:
-          type: number
-          description: method with which you will send us the shipments. 2 - personally, 4 - courier
-          enum: [ 1,2,4 ]
-      required: [ "shipments", "receive_date", "sending_method" ]
-    ManifestsCloseoutResponse:
+            $ref: '#/components/schemas/Platform'
+
+    Platform:
       type: object
       properties:
-        message:
+        id:
           type: string
-        manifested_shipments:
+        name:
+          type: string
+        longitude:
+          type: number
+          format: double
+        latitude:
+          type: number
+          format: double
+
+    TripDetail:
+      type: object
+      properties:
+        departure_at:
+          type: string
+        arrival_at:
+          type: string
+        trip_id:
+          type: string
+        duration:
+          type: string
+        route:
+          type: string
+        stop_names:
           type: array
           items:
             type: string
-        failed_shipments:
-          type: array
-          items:
-            type: string
-        status:
-          type: string
-        manifest:
-          type: object
-          properties:
-            number:
-              type: string
-              description: ID of manifest
-            label:
-              type: string
-              description: label file in base64 format
-    ShipmentsStoreRequest:
-      type: object
-      required: [ "receiver_name","receiver_address_line_1","receiver_city","receiver_postal_code","receiver_country","weight","content" ]
-      properties:
-        receiver_name:
-          type: string
-        receiver_address_line_1:
-          type: string
-          description: leave empty if delivery is to office.
-        receiver_city:
-          type: string
-          description: leave empty if delivery is to office.
-        receiver_postal_code:
-          type: string
-          description: leave empty if delivery is to office.
-        receiver_office_code:
-          type: string
-          description: code of the office for which the receiver has requested delivery to. This field should be left empty if delivery is not to an office.
-        receiver_country:
-          type: string
-          description: ISO CODE 3166
-        weight:
-          type: number
-          description: weight in kg
-        content:
-          type: string
-          description: description of content in the box
-        product:
-          type: string
-          description: product code; AT_POST -> PAA - Parcel Austria, PPA -> Parcel Premium Austria, PRA -> Parcel Return Austria ; POSTONE -> TRC - ONE TRACK, BSC - ONE BASIC, PRM - ONE PREMIUM, EXP - ONE EXPRESS, RTN - ONE RETURN, LTR - ONE LETTER, PAC - ONE PACK, SLC - ONE SELECT
-          enum: [ "PAA", "PPA", "PRA", "TRC", "BSC", "PRM", "EXP", "RTN", "LTR", "PAC", "SLC" ]
-        service:
-          type: string
-          description: deprecated, ignore
-        priority:
-          type: string
-          description: priority of shipment
-          enum: [ "E","F" ]
-        receiver_company_name:
-          type: string
-        receiver_address_line_2:
-          type: string
-        receiver_address_number:
-          type: string
-        receiver_region:
-          type: string
-        receiver_phone:
-          type: string
-        receiver_phone_country_code:
-          type: string
-          description: specify the country for the provided phone number. This should be passed if the phone number of the receiver does not belong to the country of delivery. In cases where our services allows foreign phone numbers, we will validate the phone number towards the specified country here.
-        receiver_email:
-          type: string
-        receiver_vat_number:
-          type: string
-        insurance:
-          type: number
-        reference_number:
-          type: string
-          description: shipment's reference number. This has to be unique
-        info:
-          type: string
-          description: additional information
-        goods_type:
-          type: string
-          description: type of goods you are shipping
-          enum: [ "GOODS","SAMPLE","DOCUMENTS","GIFT" ]
-        unit_value:
-          type: number
-          description: price of a single unit in a given shipment. Field is required for shipments outside of EU.
-        unit_value_currency:
-          type: string
-          description: field is required for shipments outside of EU
-          enum: [ "EUR","USD","GBP","CHF","JPY","RUB","BGN" ]
-        quantity:
-          type: number
-          description: field is required for shipments outside of EU.
-        height:
-          type: number
-          description: value in cm
-        width:
-          type: number
-          description: value in cm
-        length:
-          type: number
-          description: value in cm
-        terms_of_delivery:
-          type: string
-          enum: [ "DAP","DDP","EXW","FCA","FAS","FOB","CFR","CIF","CPT","CIP","DAT" ]
-        country_origin:
-          type: string
-          description: shipments country of origin ISO CODE 3166
-        hs_tarrif_code:
-          type: string
-          description: hs tariff code used for shipment. Field is required for shipments outside of EU
-        cod_amount:
-          type: number
-          description: amount for Cash on Delivery
-        notify_receiver:
-          type: number
-          description: if the receiver should be notified on tracking changes events
-          enum: [ 0,1 ]
-        request_partner_label:
-          description: if a partner label and tracking should be issued
-          type: number
-          enum: [ 0,1 ]
-        label_direction:
-          description: D - Default, P - portrait, L - landscape.
-          type: string
-          enum: [ "D","P","L" ]
-    ShipmentsStoreResponse:
-      type: object
-      properties:
-        message:
-          type: string
-        shipment:
-          type: object
-          properties:
-            item_number:
-              type: string
-            tracking_number:
-              type: string
-            expect_tracking_number:
-              type: number
-            partner_name:
-              type: string
-            label:
-              type: string
-    ShipmentsImportCsvRequest:
-      type: object
-      properties:
-        file:
-          type: string
-    ShipmentsImportCsvResponse:
-      type: object
-      properties:
-        file:
-          type: string
-    ShipmentsGetTrackingNumbersResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            type: object
-            properties:
-              item_number:
-                type: string
-              code:
-                type: number
-              expect_tracking_number:
-                type: number
-              tracking_number:
-                type: string
-    ShipmentsGetWeightAndPriceResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            type: object
-            properties:
-              item_number:
-                type: string
-              code:
-                type: number
-              weight:
-                type: number
-              volume_weight:
-                type: string
-              control_weight:
-                type: number
-              control_volume_weight:
-                type: number
-              invoice_weight:
-                type: number
-              total_price:
-                type: number
-              partner_name:
-                type: string
-    ShipmentsGetItemLabelResponse:
-      type: object
-      properties:
-        shipment:
-          type: object
-          properties:
-            item_number:
-              type: string
-            label:
-              type: string
-    ShipmentsGetPartnerLabelResponse:
-      type: object
-      properties:
-        shipment:
-          type: object
-          properties:
-            item_number:
-              type: string
-            label:
-              type: string
-    ShipmentsStopRequest:
-      type: object
-      properties:
-        shipments:
-          type: array
-          description: array of shipment numbers
-          items:
-            type: string
-    ShipmentsStopResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            type: object
-            properties:
-              item_number:
-                type: string
-              code:
-                type: number
-              message:
-                type: string
-    ShipmentsGetPriceRequest:
-      type: object
-      required: [ "receiver_country","receiver_postal_code","weight","product","priority" ]
-      properties:
-        receiver_country:
-          type: string
-          description: ISO CODE 3166
-        receiver_postal_code:
-          type: string
-        weight:
-          type: number
-          description: weight in kg
-        product:
-          type: string
-          description: "country AT: PAA - Parcel Austria, other EU countrie: TRC - ONE TRACK, BSC - ONE BASIC, PRM - ONE PREMIUM, EXP - ONE EXPRESS, RTN - ONE RETURN, LTR - ONE LETTER, PAC - ONE PACK, SLC - ONE SELECT"
-          enum: [ "PAA", "TRC", "BSC", "PRM", "EXP", "RTN", "LTR", "PAC", "SLC" ]
-        priority:
-          type: string
-          description: priority of shipment
-          enum: [ "E","F" ]
-        insurance:
-          type: number
-        height:
-          type: number
-          description: height in cm
-        width:
-          type: number
-          description: width in cm
-        length:
-          type: number
-          description: length in cm
-        cod_amount:
-          type: number
-    ShipmentsGetPriceResponse:
-      type: object
-      properties:
-        price:
-          type: number
-        transportation_cost:
-          type: number
-        insurance_cost:
-          type: number
-        cod_cost:
-          type: number
-        partner_name:
-          type: string
-    ShipmentsGetRequest:
-      type: object
-      properties:
-        take:
-          type: number
-        skip:
-          type: number
-        filter:
-          type: object
-          properties:
-            item_number:
-              type: string
-            tracking_number:
-              type: string
-            reference_number:
-              type: string
-            country:
-              type: string
-            createdFrom:
-              type: string
-              format: date
-            createdTo:
-              type: string
-              format: date
-    ShipmentsGetResponse:
-      type: object
-      properties:
-        count:
-          type: number
-        shipments:
-          type: array
-          items:
-            type: object
-            properties:
-              delivery_method:
-                type: string
-                description: "country SK: ['', 2PT, 2PS]"
-              receiver_company_name:
-                type: string
-              receiver_name:
-                type: string
-              receiver_address_line_1:
-                type: string
-              receiver_city:
-                type: string
-              receiver_postal_code:
-                type: string
-              receiver_country:
-                type: string
-              item_number:
-                type: string
-              reference_number:
-                type: string
-              tracking_number:
-                type: string
-              status:
-                type: number
-              client_name:
-                type: string
-              created_at:
-                type: string
-                format: date-time
-              updated_at:
-                type: string
-                format: date-time
-    ShipmentsDeleteResponse:
-      type: object
-      properties:
-        message:
-          type: string
-    ShipmentsGetOneResponse:
-      type: object
-      properties:
-        receiver_company_name:
-          type: string
-        receiver_name:
-          type: string
-        receiver_address_line_1:
-          type: string
-        receiver_city:
-          type: string
-        receiver_postal_code:
-          type: string
-        receiver_country:
-          type: string
-        receiver_phone:
-          type: string
-        receiver_email:
-          type: string
-        item_number:
-          type: string
-        reference_number:
-          type: string
-        tracking_number:
-          type: string
-        status:
-          type: number
-        client_name:
-          type: string
-        weight:
-          type: number
-        height:
-          type: number
-        width:
-          type: number
-        length:
-          type: number
-        content:
-          type: string
-        product:
-          type: string
-        priority:
-          type: string
-        info:
-          type: string
-        goods_type:
-          type: string
-        partner_name:
-          type: string
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-    TrackingGetShipmentHistoryResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            type: object
-            properties:
-              item_number:
-                type: string
-              tracking_link:
-                type: string
-              events:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                    code:
-                      type: string
-                    date:
-                      type: string
-    TrackingForPartnersResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            type: object
-            properties:
-              item_number:
-                type: string
-              events:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                    code:
-                      type: string
-                    date:
-                      type: string
-    ErrorResponse:
-      type: object
-      required:
-        - message
-      properties:
-        message:
-          type: string
-        errors:
-          type: object
