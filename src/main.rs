@@ -1,11 +1,11 @@
 mod transit_index;
 mod util;
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::{BTreeSet, HashMap, HashSet}, sync::Arc};
 use gtfs_structures::{Gtfs, Id};
 use serde_json::to_string;
 use tiny_http::{Header, Response, Server};
-use transit_index::TransitIndex;
+use transit_index::{DirectTrip, TransitIndex};
 use util::{format_u32_time, format_seconds_to_minutes};
 
 fn main() {
@@ -42,6 +42,45 @@ fn main() {
                     .with_status_code(200)
                     .with_header(Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap())
             }, 
+            "/api/v1/stops/routes/departures" => {
+                if let Some(stop_name) = query_params.get("stop_name") {
+                    let stop_platforms = transit_index.search_by_name(stop_name)[0].clone();
+
+                    let mut possibilities: HashMap<&str, BTreeSet<&str>> = HashMap::new();
+
+                    let (_, time_taken) = util::measure(|| {
+                        stop_platforms.platforms.iter().for_each(|p| {
+                            if let Some(from) = transit_index.stops_graph.get(p.id()) {
+                                from.values().for_each(|trips| {
+                                    trips.iter().for_each(|dt| {
+                                        if let Ok(route) = gtfs.get_route(&dt.trip.route_id) {
+                                            if let Some(route_name) = &route.short_name {
+                                                let entry = possibilities.entry(route_name.as_str()).or_insert(BTreeSet::new());
+                                                entry.insert(dt.stop_times.last().unwrap().stop.name.as_ref().unwrap().as_str());
+                                            }
+                                        }
+                                    })
+                                })
+                            }
+                        });
+                    });
+
+                    let response = serde_json::json!({
+                        "time_taken": time_taken,
+                        "possibilities": possibilities,
+                    });
+
+                    Response::from_string(to_string(&response).unwrap()).with_status_code(400)
+                        .with_status_code(200)
+                        .with_header(Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap())
+                } else {
+                    let response = serde_json::json!({
+                        "error": "Invalid stop_name query parameter",
+                    });
+
+                    Response::from_string(to_string(&response).unwrap()).with_status_code(400)
+                }
+            },
             "/api/v1/swagger" => {
                 Response::from_string(include_str!("../openapi.yaml"))
                     .with_status_code(200)
