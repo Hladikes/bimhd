@@ -41,6 +41,8 @@ fn main() {
                 Response::from_string(to_string(&response).unwrap())
                     .with_status_code(200)
                     .with_header(Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap())
+                    .with_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap())
+                    .with_header(Header::from_bytes(&b"Access-Control-Allow-Methods"[..], &b"GET, POST, PUT, DELETE, OPTIONS"[..]).unwrap())
             }, 
             "/api/v1/stops/routes/departures" => {
                 if let Some(stop_name) = query_params.get("stop_name") {
@@ -75,12 +77,16 @@ fn main() {
                     Response::from_string(to_string(&response).unwrap()).with_status_code(400)
                         .with_status_code(200)
                         .with_header(Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap())
+                        .with_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap())
+                        .with_header(Header::from_bytes(&b"Access-Control-Allow-Methods"[..], &b"GET, POST, PUT, DELETE, OPTIONS"[..]).unwrap())
                 } else {
                     let response = serde_json::json!({
                         "error": "Invalid stop_name query parameter",
                     });
 
                     Response::from_string(to_string(&response).unwrap()).with_status_code(400)
+                        .with_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap())
+                        .with_header(Header::from_bytes(&b"Access-Control-Allow-Methods"[..], &b"GET, POST, PUT, DELETE, OPTIONS"[..]).unwrap())
                 }
             },
             "/api/v1/swagger" => {
@@ -108,12 +114,16 @@ fn main() {
                     Response::from_string(to_string(&response).unwrap())
                         .with_status_code(200)
                         .with_header(Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap())
+                        .with_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap())
+                        .with_header(Header::from_bytes(&b"Access-Control-Allow-Methods"[..], &b"GET, POST, PUT, DELETE, OPTIONS"[..]).unwrap())
                 } else {
                     let response = serde_json::json!({
                         "error": "Invalid lon and lat query parameters",
                     });
 
                     Response::from_string(to_string(&response).unwrap()).with_status_code(400)
+                        .with_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap())
+                        .with_header(Header::from_bytes(&b"Access-Control-Allow-Methods"[..], &b"GET, POST, PUT, DELETE, OPTIONS"[..]).unwrap())
                 }
             },
             "/api/v1/trip" => {
@@ -164,6 +174,8 @@ fn main() {
                 Response::from_string(to_string(&response).unwrap())
                     .with_status_code(200)
                     .with_header(Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap())
+                    .with_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap())
+                    .with_header(Header::from_bytes(&b"Access-Control-Allow-Methods"[..], &b"GET, POST, PUT, DELETE, OPTIONS"[..]).unwrap())
             },
             _ => Response::from_string("Not Found")
         };
