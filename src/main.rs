@@ -44,11 +44,11 @@ fn main() {
             }, 
             "/api/v1/stops/routes/departures" => {
                 if let Some(stop_name) = query_params.get("stop_name") {
-                    let stop_platforms = transit_index.search_by_name(stop_name)[0].clone();
+                    
+                    let (possibilities, time_taken) = util::measure(|| {
+                        let stop_platforms = transit_index.search_by_name(stop_name)[0].clone();
+                        let mut possibilities: HashMap<&str, BTreeSet<&str>> = HashMap::new();
 
-                    let mut possibilities: HashMap<&str, BTreeSet<&str>> = HashMap::new();
-
-                    let (_, time_taken) = util::measure(|| {
                         stop_platforms.platforms.iter().for_each(|p| {
                             if let Some(from) = transit_index.stops_graph.get(p.id()) {
                                 from.values().for_each(|trips| {
@@ -63,6 +63,8 @@ fn main() {
                                 })
                             }
                         });
+
+                        possibilities
                     });
 
                     let response = serde_json::json!({
