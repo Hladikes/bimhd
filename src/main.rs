@@ -111,13 +111,15 @@
 mod transit_index;
 mod util;
 
+use core::time;
 use std::{collections::HashMap, sync::Arc};
 
-use gtfs_structures::{Gtfs, StopTime};
+use gtfs_structures::{Gtfs, StopTime, Id};
 use serde::Serialize;
 use serde_json::{to_string, Value};
 use tiny_http::{Header, Response, Server, StatusCode};
 use transit_index::TransitIndex;
+use util::format_u32_time;
 
 use crate::transit_index::DirectTrip;
 
@@ -163,21 +165,46 @@ fn main() {
             },
             "/api/v1/trip" => {
                 let (route, time_taken) = util::measure(|| {
-                    let from_stop = transit_index.search_by_name("Cintorin Slavicie").get(0).cloned().expect("Stop not found");
-                    let to_stop = transit_index.search_by_name("Hrobonova").get(0).cloned().expect("Stop not found");
+                    let from_param = query_params.get("from").map_or("Cintorin Slavicie", |v| v.as_str());
+                    let to_param = query_params.get("to").map_or("Hlavna stanica", |v| v.as_str());
                 
-                    let route = transit_index.find_route(from_stop, to_stop, None);
+                    let time_at = query_params.get("time_at").and_then(|time_str| {
+                        time_str.split(':').map(|s| s.parse::<u32>().ok()).collect::<Option<Vec<u32>>>().and_then(|parts| {
+                            if parts.len() == 2 {
+                                Some(parts[0] * 3600 + parts[1] * 60)
+                            } else {
+                                None
+                            }
+                        })
+                    });
+                
+                    let from_stop = transit_index.search_by_name(from_param).get(0).cloned().expect("Stop not found");
+                    let to_stop = transit_index.search_by_name(to_param).get(0).cloned().expect("Stop not found");
+                
+                    let route = transit_index.find_route(from_stop, to_stop, time_at);
                     route
                 });
-
-                let stop_times: Option<Vec<&[StopTime]>> = route.map(|trips| {
-                    trips.iter().map(|dt| dt.stop_times).collect()
-                });
-
-                let response = serde_json::json!({
-                    "time_taken": time_taken,
-                    "stop_times": stop_times,
-                });
+                
+                let response = route.map(|trips| {
+                    let first_trip_departure = trips.first().map(|t| format_u32_time(t.get_departure_time()));
+                    let last_trip_arrival = trips.last().map(|t| format_u32_time(t.get_arrival_time()));
+            
+                    serde_json::json!({
+                        "time_taken": time_taken,
+                        "departure_at": first_trip_departure,
+                        "arrival_at": last_trip_arrival,
+                        "trips": trips.iter().map(|trip| {
+                            serde_json::json!({
+                                "trip_id": trip.trip.id(),
+                                "duration": trip.get_duration(),
+                                "route": gtfs.get_route(&trip.trip.route_id).map_or("-".to_string(), |r| r.short_name.clone().unwrap_or("-".to_string())),
+                                "stop_names": trip.get_stop_names(),
+                            })
+                        }).collect::<Vec<_>>()
+                    })
+                }).unwrap_or(serde_json::json!({
+                    "error": "No route found"
+                }));
 
                 Response::from_string(to_string(&response).unwrap())
                     .with_status_code(200)
