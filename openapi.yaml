@@ -76,8 +76,36 @@ paths:
                 items:
                   $ref: '#/components/schemas/Stop'
         400:
-          description: Bad request if the longitude or latitude parameters are missing or invalid.
-
+          description: Bad request if the longitude or latitude parameters are missing or invalid.       
+  /stops/routes/departures:
+    get:
+      summary: Retrieves departure routes for a specified stop
+      description: Returns routes departing from the specified stop along with their destinations.
+      parameters:
+        - in: query
+          name: stop_name
+          schema:
+            type: string
+          required: true
+          description: The stop name to fetch departure routes for.
+      responses:
+        200:
+          description: A list of departure routes and possible destinations from the given stop.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  time_taken:
+                    type: string
+                  possibilities:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: string
+        400:
+          description: Invalid request due to missing or incorrect stop name.
   /trip:
     get:
       summary: Calculates a trip from one stop to another at a specified time
@@ -134,7 +162,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Platform'
-
     Platform:
       type: object
       properties:
@@ -148,7 +175,6 @@ components:
         latitude:
           type: number
           format: double
-
     TripDetail:
       type: object
       properties:
