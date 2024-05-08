@@ -164,17 +164,11 @@ fn main() {
                     let route = transit_index.find_route(from_stop, to_stop, None);
                     route
                 });
-                
-                #[derive(Serialize)]
-                struct TripResponse<'a> {
-                    time_taken: u128,
-                    route: Option<Vec<Arc<DirectTrip<'a>>>>,
-                }
 
-                let response = TripResponse {
-                    time_taken,
-                    route,
-                };
+                let response = serde_json::json!({
+                    "time_taken": time_taken,
+                    "route": route,
+                });
 
                 Response::from_string(to_string(&response).unwrap())
                     .with_status_code(200)
