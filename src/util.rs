@@ -18,18 +18,14 @@ pub fn format_u32_time(time: u32) -> String {
     format!("{:02}:{:02}", time / 3600, (time / 60) % 60)
 }
 
-pub fn measure<F, R>(func: F) -> (R, u128)
+pub fn measure<F, R>(func: F) -> (R, String)
 where
     F: FnOnce() -> R,
 {
-    // Start the timer
     let start = Instant::now();
-
-    // Execute the function
     let result = func();
+    let duration = start.elapsed().as_millis();
+    let elapsed = format!("{} ms", duration);
 
-    // Calculate the duration
-    let duration = start.elapsed().as_micros();
-
-    (result, duration) // Return the result and the duration
+    (result, elapsed)
 }
