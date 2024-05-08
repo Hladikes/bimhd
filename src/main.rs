@@ -65,7 +65,7 @@ fn main() {
                 });
             
                 let response = serde_json::json!({
-                    "time_taken": format!("{}", time_taken),
+                    "time_taken": time_taken,
                     "stops": stops_data
                 });
             
