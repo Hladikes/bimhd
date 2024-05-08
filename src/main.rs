@@ -160,6 +160,8 @@ fn main() {
                 Response::from_string(file)
                     .with_status_code(200)
                     .with_header(Header::from_bytes(&b"Content-Type"[..], &b"text/plain"[..]).unwrap())
+                    .with_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap())
+                    .with_header(Header::from_bytes(&b"Access-Control-Allow-Methods"[..], &b"GET, POST, PUT, DELETE, OPTIONS"[..]).unwrap())
             },
             "/api/v1/trip" => {
                 let (route, time_taken) = util::measure(|| {
