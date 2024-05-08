@@ -55,9 +55,16 @@ fn main() {
                 
                 if let (Some(lon), Some(lat)) = (parsed_lon, parsed_lat) {
                     let max_count = query_params.get("max").and_then(|s| s.parse::<usize>().ok()).unwrap_or(5);
-                    let nearest_stops = transit_index.find_nearest_stops(lon, lat, max_count);
+                    let (nearest_stops, time_taken) = util::measure(|| {
+                        transit_index.find_nearest_stops(lon, lat, max_count)
+                    });
 
-                    Response::from_string(to_string(&nearest_stops).unwrap())
+                    let response = serde_json::json!({
+                        "time_taken": time_taken,
+                        "nearest_stops": nearest_stops,
+                    });
+
+                    Response::from_string(to_string(&response).unwrap())
                         .with_status_code(200)
                         .with_header(Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap())
                 } else {
