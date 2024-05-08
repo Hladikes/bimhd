@@ -136,23 +136,15 @@ fn main() {
 
         let response = match parsed_url.path() {
             "/api/v1/stops" => {
-                println!("{:#?}", query_params);
-
                 let (stops, time_taken) = util::measure(|| {
                     let stops: Vec<Arc<gtfs_structures::Stop>> = gtfs.stops.values().cloned().collect();
                     stops
                 });
-                
-                #[derive(Serialize)]
-                struct StopsResponse {
-                    time_taken: u128,
-                    stops: Vec<Arc<gtfs_structures::Stop>>,
-                }
-            
-                let response = StopsResponse {
-                    time_taken,
-                    stops,
-                };
+
+                let response = serde_json::json!({
+                    "time_taken": time_taken,
+                    "stops": stops,
+                });
 
                 Response::from_string(to_string(&response).unwrap())
                     .with_status_code(200)
