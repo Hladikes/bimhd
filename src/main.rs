@@ -10,7 +10,7 @@ use util::{format_u32_time, format_seconds_to_minutes};
 
 fn main() {
     let gtfs = Gtfs::from_url("https://www.arcgis.com/sharing/rest/content/items/aba12fd2cbac4843bc7406151bc66106/data").expect("Could not download gtfs file");
-    // let gtfs = Gtfs::from_path("./gtfs.zip").expect("Could not open gtfs.zip file");
+    //let gtfs = Gtfs::from_path("./gtfs-vienna.zip").expect("Could not open gtfs.zip file");
     let transit_index = TransitIndex::new(&gtfs);
     let server = Server::http("0.0.0.0:8000").expect("Failed to start the server");
 
